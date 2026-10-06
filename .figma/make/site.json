@@ -1,0 +1,10 @@
+{
+  "description": "This online bookstore offers a diverse range of books with user-friendly features like account registration, shopping cart, payment interface, and a chatbot for personalized recommendations.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
