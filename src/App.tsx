@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from "react";
+import React, { FormEvent, useMemo, useState } from "react";
 
 type IconName =
   | "search"
@@ -342,29 +342,46 @@ export default function App() {
   const [authOpen, setAuthOpen] = useState(false);
   const [query, setQuery] = useState("");
   const cartCount = Object.values(cart).reduce((sum, value) => sum + value, 0);
+
   function go(next: typeof view) { setView(next); window.scrollTo({ top: 0, behavior: "smooth" }); }
   function add(id: number) { setCart((c) => ({ ...c, [id]: (c[id] || 0) + 1 })); setCartOpen(true); }
   function quantity(id: number, delta: number) { setCart((c) => { const next = { ...c, [id]: (c[id] || 0) + delta }; if (next[id] <= 0) delete next[id]; return next; }); }
+
   return (
     <div>
-      <Header cartCount={cartCount} onCart={() => setCartOpen(true)} onAuth={() => setAuthOpen(true)} onHome={() => go("home")} onCatalog={() => go("catalog")} query={query} setQuery={(value) => { setQuery(value); if (value && view !== "catalog") go("catalog"); }} />
+      <Header
+        cartCount={cartCount}
+        onCart={() => setCartOpen(true)}
+        onAuth={() => setAuthOpen(true)}
+        onHome={() => go("home")}
+        onCatalog={() => go("catalog")}
+        query={query}
+        setQuery={(value) => {
+          setQuery(value);
+          if (value && view !== "catalog") go("catalog");
+        }}
+      />
+
       {view === "home" && <Home onAdd={add} onCatalog={() => go("catalog")} />}
       {view === "catalog" && <Catalog onAdd={add} query={query} />}
       {view === "checkout" && <Checkout cart={cart} onSuccess={() => setCart({})} />}
+
       <Footer onCatalog={() => go("catalog")} />
-      {cartOpen && <CartDrawer cart={cart} onClose={() => setCartOpen(false)} onQuantity={quantity} onCheckout={() => { setCartOpen(false); go("checkout"); }} />}
+
+      {cartOpen && (
+        <CartDrawer
+          cart={cart}
+          onClose={() => setCartOpen(false)}
+          onQuantity={quantity}
+          onCheckout={() => {
+            setCartOpen(false);
+            go("checkout");
+          }}
+        />
+      )}
+
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
-      <button
-        className="download-project"
-        onClick={() => {
-          const link = document.createElement("a");
-          link.href = "/figma-make-app.zip";
-          link.download = "figma-make-app.zip";
-          link.click();
-        }}
-      >
-        Tải dự án ZIP
-      </button>
+
       <Chatbot />
     </div>
   );
