@@ -1,7 +1,9 @@
 {
-  "description": "This online bookstore offers a diverse range of books with user-friendly features like account registration, shopping cart, payment interface, and a chatbot for personalized recommendations.",
+  "title": "Mộc Books - Hiệu Sách Trực Tuyến & Không Gian Tri Thức",
+  "description": "Hiệu sách Mộc Books - Kho sách chọn lọc, văn học, kinh tế, tâm lý & kỹ năng sống. Giao hàng toàn quốc, thanh toán thông minh và trợ lý ảo Mầm.",
+  "language": "vi",
   "robots": {
-    "index": false
+    "index": true
   },
   "accessibility": {
     "addBypassLinks": false,
