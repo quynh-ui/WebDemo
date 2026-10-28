@@ -1,6 +1,29 @@
-import React, { FormEvent, useMemo, useState } from "react"
+// src/App.tsx
+import React, { FormEvent, useEffect, useMemo, useState } from "react"
+import { User, Order } from "./types"
+import { AuthModal } from "./AuthModal"
+import { Catalog } from "./Catalog"
+import { products, categories } from "./data"
+import { OrderHistory } from "./OrderHistory"
+import { Chatbot } from "./Chatbot"
 
-type IconName = "search" | "user" | "bag" | "arrow" | "star" | "heart" | "close" | "minus" | "plus" | "send" | "spark" | "check" | "truck" | "shield" | "book"
+// 1. GIAO DIỆN ICON (Vẽ toàn bộ Icon SVG)
+type IconName =
+  | "search"
+  | "user"
+  | "bag"
+  | "arrow"
+  | "star"
+  | "heart"
+  | "close"
+  | "minus"
+  | "plus"
+  | "send"
+  | "spark"
+  | "check"
+  | "truck"
+  | "shield"
+  | "book"
 
 function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   const paths: Record<IconName, React.ReactNode> = {
@@ -98,6 +121,7 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   )
 }
 
+// 2. DỮ LIỆU SÁCH & CÔNG CỤ TÍNH TOÁN
 type Product = {
   id: number
   title: string
@@ -111,108 +135,10 @@ type Product = {
   tag?: string
 }
 
-const products: Product[] = [
-  {
-    id: 1,
-    title: "Ngày Xưa Có Một Chuyện Tình",
-    author: "Nguyễn Nhật Ánh",
-    price: 108000,
-    oldPrice: 135000,
-    category: "Văn học",
-    rating: 4.9,
-    cover: "cover-coral",
-    text: "NGÀY XƯA\nCÓ MỘT\nCHUYỆN TÌNH",
-    tag: "Bán chạy",
-  },
-  {
-    id: 2,
-    title: "Cây Cam Ngọt Của Tôi",
-    author: "José Mauro de Vasconcelos",
-    price: 86000,
-    oldPrice: 108000,
-    category: "Tiểu thuyết",
-    rating: 4.8,
-    cover: "cover-cream",
-    text: "CÂY CAM\nNGỌT\nCỦA TÔI",
-  },
-  {
-    id: 3,
-    title: "Tâm Lý Học Về Tiền",
-    author: "Morgan Housel",
-    price: 128000,
-    oldPrice: 189000,
-    category: "Kinh tế",
-    rating: 4.9,
-    cover: "cover-green",
-    text: "TÂM LÝ HỌC\nVỀ TIỀN",
-    tag: "-32%",
-  },
-  {
-    id: 4,
-    title: "Nhà Giả Kim",
-    author: "Paulo Coelho",
-    price: 79000,
-    category: "Tiểu thuyết",
-    rating: 4.7,
-    cover: "cover-gold",
-    text: "NHÀ\nGIẢ KIM",
-  },
-  {
-    id: 5,
-    title: "Muôn Kiếp Nhân Sinh",
-    author: "Nguyên Phong",
-    price: 148000,
-    oldPrice: 168000,
-    category: "Tâm linh",
-    rating: 4.8,
-    cover: "cover-night",
-    text: "MUÔN KIẾP\nNHÂN SINH",
-    tag: "Mới",
-  },
-  {
-    id: 6,
-    title: "Không Diệt Không Sinh",
-    author: "Thích Nhất Hạnh",
-    price: 74000,
-    category: "Kỹ năng sống",
-    rating: 4.9,
-    cover: "cover-blue",
-    text: "KHÔNG DIỆT\nKHÔNG SINH",
-  },
-  {
-    id: 7,
-    title: "Dám Bị Ghét",
-    author: "Koga Fumitake",
-    price: 96000,
-    oldPrice: 119000,
-    category: "Kỹ năng sống",
-    rating: 4.7,
-    cover: "cover-red",
-    text: "DÁM\nBỊ GHÉT",
-  },
-  {
-    id: 8,
-    title: "Cho Tôi Xin Một Vé Đi Tuổi Thơ",
-    author: "Nguyễn Nhật Ánh",
-    price: 68000,
-    category: "Văn học",
-    rating: 4.8,
-    cover: "cover-sky",
-    text: "CHO TÔI XIN\nMỘT VÉ ĐI\nTUỔI THƠ",
-  },
-]
-
-const categories = [
-  "Tất cả",
-  "Văn học",
-  "Tiểu thuyết",
-  "Kinh tế",
-  "Kỹ năng sống",
-  "Tâm linh",
-]
 const money = (value: number) =>
   new Intl.NumberFormat("vi-VN").format(value) + "đ"
 
+// 3. GIAO DIỆN ĐIỀU HƯỚNG (Header & Logo)
 function Logo({ onClick }: { onClick: () => void }) {
   return (
     <button className="logo" onClick={onClick} aria-label="Về trang chủ">
@@ -227,23 +153,86 @@ function Logo({ onClick }: { onClick: () => void }) {
   )
 }
 
+function removeVietnameseTones(str: string): string {
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .toLowerCase()
+    .trim()
+}
+
 function Header({
   cartCount,
   onCart,
   onAuth,
   onHome,
   onCatalog,
+  onBestseller,
+  onAbout,
+  onOrders,
   query,
   setQuery,
+  currentUser,
+  onLogout,
 }: {
   cartCount: number
   onCart: () => void
   onAuth: () => void
   onHome: () => void
   onCatalog: () => void
+  onBestseller: () => void
+  onAbout: () => void
+  onOrders: () => void
   query: string
   setQuery: (value: string) => void
+  currentUser: User | null
+  onLogout: () => void
 }) {
+  const [showDropdown, setShowDropdown] = useState(false)
+
+  const synonyms: Record<string, string[]> = {
+    "hoat hinh": ["thiếu nhi", "hoàng tử bé", "dế mèn", "hải âu"],
+    "truyen tranh": ["thiếu nhi", "tuổi thơ"],
+    "tai chinh": ["kinh tế", "tiền", "phố wall", "giàu"],
+    "chua lanh": ["tâm linh", "kỹ năng sống", "không diệt", "trái tim"],
+  }
+
+  const searchSuggestions = useMemo(() => {
+    const rawTerm = query.trim()
+    if (!rawTerm) return []
+
+    const cleanTerm = removeVietnameseTones(rawTerm)
+    let relatedTerms = [cleanTerm]
+
+    Object.keys(synonyms).forEach((key) => {
+      if (cleanTerm.includes(key) || key.includes(cleanTerm)) {
+        relatedTerms = [
+          ...relatedTerms,
+          ...synonyms[key].map(removeVietnameseTones),
+        ]
+      }
+    })
+
+    return products
+      .filter((p) => {
+        const titleNoTone = removeVietnameseTones(p.title)
+        const authorNoTone = removeVietnameseTones(p.author)
+        const catNoTone = removeVietnameseTones(p.category)
+        const textNoTone = removeVietnameseTones(p.text)
+
+        return relatedTerms.some(
+          (term) =>
+            titleNoTone.includes(term) ||
+            authorNoTone.includes(term) ||
+            catNoTone.includes(term) ||
+            textNoTone.includes(term)
+        )
+      })
+      .slice(0, 5)
+  }, [query])
+
   return (
     <>
       <div className="topbar">
@@ -253,39 +242,229 @@ function Header({
         <div className="header-inner">
           <Logo onClick={onHome} />
           <nav>
-            <button onClick={onHome}>Trang chủ</button>
-            <button onClick={onCatalog}>Kho sách</button>
-            <button onClick={onCatalog}>Sách bán chạy</button>
-            <button
-              onClick={() =>
-                document
-                  .getElementById("about")
-                  ?.scrollIntoView({ behavior: "smooth" })
-              }
-            >
+            <button type="button" onClick={onHome}>
+              Trang chủ
+            </button>
+            <button type="button" onClick={onCatalog}>
+              Kho sách
+            </button>
+            <button type="button" onClick={onBestseller}>
+              Sách bán chạy
+            </button>
+            <button type="button" onClick={onAbout}>
               Về Mộc
             </button>
-          </nav>
-          <div className="header-actions">
-            <label className="search">
-              <Icon name="search" size={18} />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Tìm tựa sách, tác giả..."
-              />
-            </label>
-            <button
-              className="icon-button"
-              onClick={onAuth}
-              aria-label="Tài khoản"
-            >
-              <Icon name="user" />
+            {/* NÚT ĐƠN HÀNG NẰM CẠNH VỀ MỘC */}
+            <button type="button" onClick={onOrders}>
+              Đơn hàng
             </button>
+          </nav>
+
+          <div className="header-actions">
+            <div style={{ position: "relative" }}>
+              <label className="search">
+                <Icon name="search" size={18} />
+                <input
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value)
+                    setShowDropdown(true)
+                  }}
+                  onFocus={() => setShowDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowDropdown(false), 250)}
+                  placeholder="Tìm tựa sách, tác giả, thể loại..."
+                />
+                {query && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuery("")
+                      setShowDropdown(false)
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      padding: "0 6px",
+                      color: "#888",
+                      fontSize: "14px",
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </label>
+
+              {showDropdown && query.trim().length > 0 && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "calc(100% + 8px)",
+                    left: 0,
+                    right: 0,
+                    background: "#ffffff",
+                    borderRadius: "10px",
+                    boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
+                    border: "1px solid #e8e6dc",
+                    zIndex: 999,
+                    overflow: "hidden",
+                    minWidth: "320px",
+                  }}
+                >
+                  {searchSuggestions.length > 0 ? (
+                    <div>
+                      <div
+                        style={{
+                          padding: "8px 12px",
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                          color: "#888",
+                          background: "#faf9f5",
+                          borderBottom: "1px solid #eee",
+                        }}
+                      >
+                        Gợi ý tác phẩm phù hợp
+                      </div>
+                      {searchSuggestions.map((book) => (
+                        <div
+                          key={book.id}
+                          onClick={() => {
+                            setQuery(book.title)
+                            setShowDropdown(false)
+                            onCatalog()
+                          }}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "10px",
+                            padding: "10px 12px",
+                            cursor: "pointer",
+                            borderBottom: "1px solid #f3f2ec",
+                            transition: "background 0.2s",
+                          }}
+                          onMouseEnter={(e) =>
+                            (e.currentTarget.style.backgroundColor = "#f7f6f0")
+                          }
+                          onMouseLeave={(e) =>
+                            (e.currentTarget.style.backgroundColor = "#ffffff")
+                          }
+                        >
+                          <div
+                            className={`book-cover ${book.cover}`}
+                            style={{
+                              width: "32px",
+                              height: "44px",
+                              borderRadius: "3px",
+                              flexShrink: 0,
+                            }}
+                          />
+                          <div
+                            style={{ flex: 1, minWidth: 0, textAlign: "left" }}
+                          >
+                            <div
+                              style={{
+                                fontSize: "13px",
+                                fontWeight: 600,
+                                color: "#1f3026",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                              }}
+                            >
+                              {book.title}
+                            </div>
+                            <div style={{ fontSize: "11px", color: "#666" }}>
+                              {book.author} •{" "}
+                              <span style={{ color: "#df6b43" }}>
+                                {book.category}
+                              </span>
+                            </div>
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "12px",
+                              fontWeight: 700,
+                              color: "#df6b43",
+                            }}
+                          >
+                            {money(book.price)}
+                          </div>
+                        </div>
+                      ))}
+                      <div
+                        onClick={() => {
+                          setShowDropdown(false)
+                          onCatalog()
+                        }}
+                        style={{
+                          padding: "10px",
+                          textAlign: "center",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          color: "#df6b43",
+                          background: "#faf9f5",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Xem tất cả kết quả cho "{query}" →
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        padding: "16px",
+                        textAlign: "center",
+                        fontSize: "13px",
+                        color: "#888",
+                      }}
+                    >
+                      Không tìm thấy cuốn sách nào khớp với từ khóa "{query}"
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {currentUser ? (
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "8px" }}
+              >
+                <span style={{ fontSize: "13px", fontWeight: 600 }}>
+                  Chào, {currentUser.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  title="Đăng xuất"
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "#df6b43",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                    textDecoration: "underline",
+                  }}
+                >
+                  Đăng xuất
+                </button>
+              </div>
+            ) : (
+              <button
+                className="icon-button"
+                onClick={onAuth}
+                aria-label="Tài khoản"
+                type="button"
+              >
+                <Icon name="user" />
+              </button>
+            )}
+
             <button
               className="icon-button cart-button"
               onClick={onCart}
               aria-label="Giỏ hàng"
+              type="button"
             >
               <Icon name="bag" />
               <span>{cartCount}</span>
@@ -297,6 +476,7 @@ function Header({
   )
 }
 
+// 4. GIAO DIỆN THẺ SẢN PHẨM & BÌA SÁCH
 function BookCover({
   product,
   large = false,
@@ -323,53 +503,133 @@ function BookCover({
 function ProductCard({
   product,
   onAdd,
+  onBuyNow,
 }: {
   product: Product
   onAdd: (id: number) => void
+  onBuyNow: (id: number) => void
 }) {
   const [liked, setLiked] = useState(false)
   return (
-    <article className="product-card">
+    <article
+      className="product-card"
+      style={{ display: "flex", flexDirection: "column", height: "100%" }}
+    >
       <div className="cover-wrap">
         {product.tag && <span className="product-tag">{product.tag}</span>}
         <button
           className={`like ${liked ? "active" : ""}`}
           onClick={() => setLiked(!liked)}
+          type="button"
           aria-label="Yêu thích"
         >
           <Icon name="heart" size={18} />
         </button>
         <BookCover product={product} />
-        <button className="quick-add" onClick={() => onAdd(product.id)}>
-          Thêm vào giỏ
-        </button>
       </div>
-      <div className="rating">
+
+      <div className="rating" style={{ marginTop: "12px" }}>
         <Icon name="star" size={14} /> {product.rating}{" "}
         <span>(120+ đánh giá)</span>
       </div>
       <h3>{product.title}</h3>
       <p>{product.author}</p>
-      <div className="price">
+
+      <div className="price" style={{ marginBottom: "14px" }}>
         <b>{money(product.price)}</b>
         {product.oldPrice && <del>{money(product.oldPrice)}</del>}
+      </div>
+
+      <div
+        style={{
+          marginTop: "auto",
+          display: "flex",
+          gap: "8px",
+          alignItems: "center",
+        }}
+      >
+        <button
+          type="button"
+          title="Thêm vào giỏ hàng"
+          onClick={() => onAdd(product.id)}
+          style={{
+            width: "42px",
+            height: "38px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "#f1f0e8",
+            border: "1px solid #dcd9cd",
+            borderRadius: "6px",
+            cursor: "pointer",
+            color: "#1f3026",
+            transition: "all 0.2s ease",
+            flexShrink: 0,
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "#e4e2d5")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "#f1f0e8")}
+        >
+          <Icon name="bag" size={18} />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onBuyNow(product.id)}
+          style={{
+            flex: 1,
+            height: "38px",
+            background: "#df6b43",
+            color: "#ffffff",
+            border: "none",
+            borderRadius: "6px",
+            fontWeight: 700,
+            fontSize: "13px",
+            cursor: "pointer",
+            boxShadow: "0 2px 8px rgba(223, 107, 67, 0.25)",
+            transition: "all 0.2s ease",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "#c85932")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "#df6b43")}
+        >
+          Mua ngay
+        </button>
       </div>
     </article>
   )
 }
 
+// 5. TRANG CHỦ (Home Page)
 function Home({
   onAdd,
+  onBuyNow,
   onCatalog,
 }: {
   onAdd: (id: number) => void
+  onBuyNow: (id: number) => void
   onCatalog: () => void
 }) {
   const [activeCategory, setActiveCategory] = useState("Tất cả")
-  const visible =
-    activeCategory === "Tất cả"
-      ? products.slice(0, 4)
-      : products.filter((p) => p.category === activeCategory).slice(0, 4)
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 20
+
+  const filteredProducts = useMemo(() => {
+    return activeCategory === "Tất cả"
+      ? products
+      : products.filter((p) => p.category === activeCategory)
+  }, [activeCategory])
+
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage)
+
+  const visible = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage
+    return filteredProducts.slice(startIndex, startIndex + itemsPerPage)
+  }, [filteredProducts, currentPage, itemsPerPage])
+
+  function handleSelectCategory(cat: string) {
+    setActiveCategory(cat)
+    setCurrentPage(1)
+  }
+
   return (
     <main>
       <section className="hero">
@@ -387,11 +647,12 @@ function Home({
             thức, cảm xúc và những câu chuyện diệu kỳ.
           </p>
           <div className="hero-buttons">
-            <button className="button primary" onClick={onCatalog}>
+            <button className="button primary" onClick={onCatalog} type="button">
               Khám phá kho sách <Icon name="arrow" />
             </button>
             <button
               className="text-button"
+              type="button"
               onClick={() =>
                 document
                   .getElementById("bestseller")
@@ -485,33 +746,133 @@ function Home({
             <span className="eyebrow">Được độc giả yêu thích</span>
             <h2>Sách nổi bật tuần này</h2>
           </div>
-          <button className="text-button" onClick={onCatalog}>
+          <button className="text-button" onClick={onCatalog} type="button">
             Xem tất cả <Icon name="arrow" size={18} />
           </button>
         </div>
-        <div className="category-tabs">
-          {categories.slice(0, 5).map((category) => (
+
+        <div
+          className="category-tabs"
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "8px",
+            marginBottom: "24px",
+          }}
+        >
+          {categories.map((category) => (
             <button
               key={category}
               className={activeCategory === category ? "active" : ""}
-              onClick={() => setActiveCategory(category)}
+              onClick={() => handleSelectCategory(category)}
+              type="button"
             >
               {category}
             </button>
           ))}
         </div>
+
         <div className="product-grid">
           {visible.map((p) => (
-            <ProductCard key={p.id} product={p} onAdd={onAdd} />
+            <ProductCard
+              key={p.id}
+              product={p}
+              onAdd={onAdd}
+              onBuyNow={onBuyNow}
+            />
           ))}
         </div>
+
+        {totalPages > 1 && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: "8px",
+              marginTop: "32px",
+            }}
+          >
+            <button
+              type="button"
+              disabled={currentPage === 1}
+              onClick={() => {
+                setCurrentPage((prev) => Math.max(prev - 1, 1))
+                document
+                  .getElementById("bestseller")
+                  ?.scrollIntoView({ behavior: "smooth" })
+              }}
+              style={{
+                padding: "8px 14px",
+                borderRadius: "6px",
+                border: "1px solid #dcd9cd",
+                background: currentPage === 1 ? "#f1f0e8" : "#fff",
+                cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                color: "#1f3026",
+                fontWeight: 600,
+              }}
+            >
+              ← Trang trước
+            </button>
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                type="button"
+                onClick={() => {
+                  setCurrentPage(page)
+                  document
+                    .getElementById("bestseller")
+                    ?.scrollIntoView({ behavior: "smooth" })
+                }}
+                style={{
+                  width: "36px",
+                  height: "36px",
+                  borderRadius: "6px",
+                  border:
+                    page === currentPage
+                      ? "1px solid #1f3026"
+                      : "1px solid #dcd9cd",
+                  background: page === currentPage ? "#1f3026" : "#fff",
+                  color: page === currentPage ? "#fff" : "#1f3026",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                {page}
+              </button>
+            ))}
+
+            <button
+              type="button"
+              disabled={currentPage === totalPages}
+              onClick={() => {
+                setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                document
+                  .getElementById("bestseller")
+                  ?.scrollIntoView({ behavior: "smooth" })
+              }}
+              style={{
+                padding: "8px 14px",
+                borderRadius: "6px",
+                border: "1px solid #dcd9cd",
+                background: currentPage === totalPages ? "#f1f0e8" : "#fff",
+                cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+                color: "#1f3026",
+                fontWeight: 600,
+              }}
+            >
+              Trang sau →
+            </button>
+          </div>
+        )}
       </section>
 
       <section className="quote-section" id="about">
         <div className="quote-art">
-          <BookCover product={products[4]} large />
+          <BookCover product={products[4] || products[0]} large />
           <div className="mini-book">
-            <BookCover product={products[1]} />
+            <BookCover product={products[1] || products[0]} />
           </div>
         </div>
         <div className="quote-copy">
@@ -525,7 +886,7 @@ function Home({
             giả và người đọc. Chúng tôi tin rằng đúng cuốn sách, đúng thời điểm
             có thể thay đổi một cuộc đời.
           </p>
-          <button className="button dark" onClick={onCatalog}>
+          <button className="button dark" onClick={onCatalog} type="button">
             Khám phá tuyển tập <Icon name="arrow" />
           </button>
         </div>
@@ -542,105 +903,32 @@ function Home({
         </div>
         <form onSubmit={(e) => e.preventDefault()}>
           <input type="email" placeholder="Email của bạn" required />
-          <button className="button primary">Đăng ký</button>
+          <button className="button primary" type="submit">
+            Đăng ký
+          </button>
         </form>
       </section>
     </main>
   )
 }
 
-function Catalog({
-  onAdd,
-  query,
-}: {
-  onAdd: (id: number) => void
-  query: string
-}) {
-  const [category, setCategory] = useState("Tất cả")
-  const filtered = useMemo(
-    () =>
-      products.filter((p) => {
-        const matchCategory = category === "Tất cả" || p.category === category
-        const term = query.toLowerCase()
-        return (
-          matchCategory &&
-          (p.title.toLowerCase().includes(term) ||
-            p.author.toLowerCase().includes(term))
-        )
-      }),
-    [category, query],
-  )
-  return (
-    <main className="catalog-page section">
-      <div className="catalog-hero">
-        <span className="eyebrow">Kho sách của Mộc</span>
-        <h1>Tìm cuốn sách dành cho bạn</h1>
-        <p>
-          Từ những câu chuyện làm rung động trái tim đến tri thức giúp bạn
-          trưởng thành mỗi ngày.
-        </p>
-      </div>
-      <div className="catalog-layout">
-        <aside>
-          <h3>Thể loại</h3>
-          {categories.map((c) => (
-            <button
-              key={c}
-              className={category === c ? "active" : ""}
-              onClick={() => setCategory(c)}
-            >
-              {c}
-              <span>
-                {c === "Tất cả"
-                  ? products.length
-                  : products.filter((p) => p.category === c).length}
-              </span>
-            </button>
-          ))}
-        </aside>
-        <div>
-          <div className="catalog-tools">
-            <p>
-              Hiển thị <b>{filtered.length}</b> cuốn sách
-            </p>
-            <select aria-label="Sắp xếp">
-              <option>Nổi bật nhất</option>
-              <option>Giá thấp đến cao</option>
-              <option>Mới nhất</option>
-            </select>
-          </div>
-          {filtered.length ? (
-            <div className="product-grid">
-              {filtered.map((p) => (
-                <ProductCard key={p.id} product={p} onAdd={onAdd} />
-              ))}
-            </div>
-          ) : (
-            <div className="empty">
-              <Icon name="search" size={40} />
-              <h3>Chưa tìm thấy cuốn sách phù hợp</h3>
-              <p>Thử tìm với từ khóa hoặc thể loại khác nhé.</p>
-            </div>
-          )}
-        </div>
-      </div>
-    </main>
-  )
-}
-
+// 7. GIAO DIỆN GIỎ HÀNG (Cart Drawer)
 function CartDrawer({
   cart,
   onClose,
   onQuantity,
+  onRemove,
   onCheckout,
 }: {
   cart: Record<number, number>
   onClose: () => void
   onQuantity: (id: number, delta: number) => void
+  onRemove: (id: number) => void
   onCheckout: () => void
 }) {
   const items = products.filter((p) => cart[p.id])
   const subtotal = items.reduce((sum, p) => sum + p.price * cart[p.id], 0)
+
   return (
     <div className="overlay" onMouseDown={onClose}>
       <aside className="cart-drawer" onMouseDown={(e) => e.stopPropagation()}>
@@ -649,10 +937,11 @@ function CartDrawer({
             <span>Giỏ hàng</span>
             <small>{items.length} sản phẩm</small>
           </div>
-          <button className="icon-button" onClick={onClose}>
+          <button className="icon-button" onClick={onClose} type="button">
             <Icon name="close" />
           </button>
         </div>
+
         <div className="cart-items">
           {items.length === 0 ? (
             <div className="empty">
@@ -662,26 +951,59 @@ function CartDrawer({
             </div>
           ) : (
             items.map((p) => (
-              <div className="cart-item" key={p.id}>
+              <div
+                className="cart-item"
+                key={p.id}
+                style={{ position: "relative" }}
+              >
                 <BookCover product={p} />
-                <div className="cart-info">
+                <div className="cart-info" style={{ flex: 1 }}>
                   <h4>{p.title}</h4>
                   <p>{p.author}</p>
                   <b>{money(p.price)}</b>
+
                   <div className="quantity">
-                    <button onClick={() => onQuantity(p.id, -1)}>
+                    <button type="button" onClick={() => onQuantity(p.id, -1)}>
                       <Icon name="minus" size={15} />
                     </button>
                     <span>{cart[p.id]}</span>
-                    <button onClick={() => onQuantity(p.id, 1)}>
+                    <button type="button" onClick={() => onQuantity(p.id, 1)}>
                       <Icon name="plus" size={15} />
                     </button>
                   </div>
                 </div>
+
+                <button
+                  type="button"
+                  title="Xóa cuốn này"
+                  onClick={() => onRemove(p.id)}
+                  style={{
+                    position: "absolute",
+                    top: "12px",
+                    right: "12px",
+                    background: "none",
+                    border: "none",
+                    color: "#a09e93",
+                    cursor: "pointer",
+                    padding: "4px",
+                    fontSize: "14px",
+                    lineHeight: 1,
+                    transition: "color 0.2s",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.color = "#d9383a")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.color = "#a09e93")
+                  }
+                >
+                  <Icon name="close" size={16} />
+                </button>
               </div>
             ))
           )}
         </div>
+
         {items.length > 0 && (
           <div className="cart-summary">
             <div>
@@ -689,10 +1011,14 @@ function CartDrawer({
               <b>{money(subtotal)}</b>
             </div>
             <small>Phí vận chuyển sẽ được tính ở bước thanh toán</small>
-            <button className="button primary full" onClick={onCheckout}>
+            <button
+              className="button primary full"
+              onClick={onCheckout}
+              type="button"
+            >
               Tiến hành thanh toán <Icon name="arrow" />
             </button>
-            <button className="continue" onClick={onClose}>
+            <button className="continue" onClick={onClose} type="button">
               Tiếp tục mua sắm
             </button>
           </div>
@@ -702,43 +1028,177 @@ function CartDrawer({
   )
 }
 
+// 8. TRANG THANH TOÁN (Checkout)
+interface Province {
+  code: number
+  name: string
+}
+interface District {
+  code: number
+  name: string
+}
+interface Ward {
+  code: number
+  name: string
+}
+
 function Checkout({
   cart,
   onSuccess,
+  onHome,
+  onSaveOrder,
 }: {
   cart: Record<number, number>
   onSuccess: () => void
+  onHome: () => void
+  onSaveOrder: (order: Order) => void
 }) {
-  const [payment, setPayment] = useState("cod")
+  const [payment, setPayment] = useState<"cod" | "bank">("cod")
   const [done, setDone] = useState(false)
+  const [orderId, setOrderId] = useState("")
+
+  const [name, setName] = useState("")
+  const [phone, setPhone] = useState("")
+  const [email, setEmail] = useState("")
+
+  const [provinces, setProvinces] = useState<Province[]>([])
+  const [districts, setDistricts] = useState<District[]>([])
+  const [wards, setWards] = useState<Ward[]>([])
+
+  const [selectedProvince, setSelectedProvince] = useState<Province | null>(null)
+  const [selectedDistrict, setSelectedDistrict] = useState<District | null>(null)
+  const [selectedWard, setSelectedWard] = useState<Ward | null>(null)
+  const [streetAddress, setStreetAddress] = useState("")
+
+  useEffect(() => {
+    fetch("https://provinces.open-api.vn/api/p/")
+      .then((res) => res.json())
+      .then((data: Province[]) => {
+        setProvinces(data)
+        if (data.length > 0) setSelectedProvince(data[0])
+      })
+      .catch((err) => console.error("Lỗi nạp tỉnh thành:", err))
+  }, [])
+
+  useEffect(() => {
+    if (!selectedProvince) return
+    fetch(`https://provinces.open-api.vn/api/p/${selectedProvince.code}?depth=2`)
+      .then((res) => res.json())
+      .then((data) => {
+        const dList: District[] = data.districts || []
+        setDistricts(dList)
+        setSelectedDistrict(dList.length > 0 ? dList[0] : null)
+      })
+      .catch((err) => console.error("Lỗi nạp quận huyện:", err))
+  }, [selectedProvince])
+
+  useEffect(() => {
+    if (!selectedDistrict) {
+      setWards([])
+      setSelectedWard(null)
+      return
+    }
+    fetch(`https://provinces.open-api.vn/api/d/${selectedDistrict.code}?depth=2`)
+      .then((res) => res.json())
+      .then((data) => {
+        const wList: Ward[] = data.wards || []
+        setWards(wList)
+        setSelectedWard(wList.length > 0 ? wList[0] : null)
+      })
+      .catch((err) => console.error("Lỗi nạp phường xã:", err))
+  }, [selectedDistrict])
+
   const items = products.filter((p) => cart[p.id])
   const subtotal = items.reduce((sum, p) => sum + p.price * cart[p.id], 0)
-  const shipping = subtotal >= 299000 ? 0 : 30000
+  const shipping = subtotal >= 299000 || subtotal === 0 ? 0 : 30000
+  const grandTotal = subtotal + shipping
+
+  const fullAddress = `${streetAddress ? streetAddress + ", " : ""}${
+    selectedWard?.name ? selectedWard.name + ", " : ""
+  }${selectedDistrict?.name ? selectedDistrict.name + ", " : ""}${
+    selectedProvince?.name || ""
+  }`
+
   function submit(e: FormEvent) {
     e.preventDefault()
+    const randomCode = "MOC" + Math.floor(100000 + Math.random() * 900000)
+    setOrderId(randomCode)
+
+    const newOrder: Order = {
+      id: randomCode,
+      createdAt: new Date().toLocaleString("vi-VN"),
+      name,
+      phone,
+      email,
+      address: fullAddress,
+      payment,
+      items: items.map((p) => ({
+        id: p.id,
+        title: p.title,
+        price: p.price,
+        quantity: cart[p.id],
+        cover: p.cover,
+      })),
+      subtotal,
+      shipping,
+      total: grandTotal,
+    }
+
+    onSaveOrder(newOrder)
     setDone(true)
     onSuccess()
   }
-  if (done)
+
+  if (done) {
     return (
-      <main className="success-page">
-        <span className="success-icon">
-          <Icon name="check" size={42} />
+      <main
+        className="success-page section"
+        style={{ textAlign: "center", padding: "60px 20px" }}
+      >
+        <span
+          className="success-icon"
+          style={{
+            display: "inline-block",
+            marginBottom: "16px",
+            color: "#2d6a4f",
+          }}
+        >
+          <Icon name="check" size={54} />
         </span>
-        <span className="eyebrow">Đặt hàng thành công</span>
-        <h1>Cảm ơn bạn đã chọn Mộc.</h1>
-        <p>
-          Đơn hàng <b>#MOC24816</b> đã được xác nhận. Chúng tôi sẽ gửi sách đến
-          bạn trong 2–4 ngày làm việc.
+        <span
+          className="eyebrow"
+          style={{ color: "#df6b43", fontWeight: 700, letterSpacing: "1px" }}
+        >
+          Đặt hàng thành công
+        </span>
+        <h1 style={{ fontSize: "28px", margin: "12px 0", color: "#1f3026" }}>
+          Cảm ơn {name} đã đặt sách tại Mộc!
+        </h1>
+        <p
+          style={{
+            color: "#666",
+            maxWidth: "540px",
+            margin: "0 auto 24px",
+            lineHeight: "1.6",
+          }}
+        >
+          Đơn hàng <b>#{orderId}</b> đã được tiếp nhận.<br />
+          Địa chỉ giao hàng:{" "}
+          <b style={{ color: "#1f3026" }}>{fullAddress}</b> (SĐT: <b>{phone}</b>
+          ).
         </p>
         <button
           className="button primary"
-          onClick={() => window.location.reload()}
+          onClick={onHome}
+          type="button"
+          style={{ padding: "12px 28px", fontSize: "15px" }}
         >
-          Tiếp tục khám phá
+          Tiếp tục khám phá sách <Icon name="arrow" />
         </button>
       </main>
     )
+  }
+
   return (
     <main className="checkout-page section">
       <div className="checkout-heading">
@@ -753,45 +1213,120 @@ function Checkout({
             </h2>
             <div className="field-grid">
               <label>
-                Họ và tên
-                <input required placeholder="Nguyễn Văn An" />
+                Họ và tên người nhận *
+                <input
+                  required
+                  placeholder="Nhập họ và tên..."
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
               </label>
+
               <label>
-                Số điện thoại
-                <input required type="tel" placeholder="090 123 4567" />
+                Số điện thoại người nhận *
+                <input
+                  required
+                  type="tel"
+                  placeholder="Ví dụ: 0912 345 678"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
               </label>
+
               <label className="wide">
-                Email
-                <input required type="email" placeholder="ban@email.com" />
+                Email nhận thông báo
+                <input
+                  type="email"
+                  placeholder="email@example.com (không bắt buộc)"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
               </label>
-              <label className="wide">
-                Địa chỉ
-                <input required placeholder="Số nhà, tên đường" />
-              </label>
+
               <label>
-                Tỉnh / Thành phố
-                <select required>
-                  <option>TP. Hồ Chí Minh</option>
-                  <option>Hà Nội</option>
-                  <option>Đà Nẵng</option>
+                Tỉnh / Thành phố *
+                <select
+                  required
+                  value={selectedProvince?.code || ""}
+                  onChange={(e) => {
+                    const prov = provinces.find(
+                      (p) => p.code === Number(e.target.value)
+                    )
+                    setSelectedProvince(prov || null)
+                  }}
+                >
+                  {provinces.map((p) => (
+                    <option key={p.code} value={p.code}>
+                      {p.name}
+                    </option>
+                  ))}
                 </select>
               </label>
+
               <label>
-                Quận / Huyện
-                <select required>
-                  <option>Chọn quận / huyện</option>
-                  <option>Quận 1</option>
-                  <option>Quận 3</option>
+                Quận / Huyện *
+                <select
+                  required
+                  value={selectedDistrict?.code || ""}
+                  onChange={(e) => {
+                    const dist = districts.find(
+                      (d) => d.code === Number(e.target.value)
+                    )
+                    setSelectedDistrict(dist || null)
+                  }}
+                >
+                  {districts.map((d) => (
+                    <option key={d.code} value={d.code}>
+                      {d.name}
+                    </option>
+                  ))}
                 </select>
+              </label>
+
+              <label className="wide">
+                Phường / Xã *
+                <select
+                  required
+                  value={selectedWard?.code || ""}
+                  onChange={(e) => {
+                    const w = wards.find(
+                      (item) => item.code === Number(e.target.value)
+                    )
+                    setSelectedWard(w || null)
+                  }}
+                >
+                  {wards.length === 0 ? (
+                    <option value="">(Đang nạp phường/xã...)</option>
+                  ) : (
+                    wards.map((w) => (
+                      <option key={w.code} value={w.code}>
+                        {w.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </label>
+
+              <label className="wide">
+                Địa chỉ chi tiết (Số nhà, tên đường, ngõ xóm...) *
+                <input
+                  required
+                  placeholder="Ví dụ: Số 12 ngõ 45, phố..."
+                  value={streetAddress}
+                  onChange={(e) => setStreetAddress(e.target.value)}
+                />
               </label>
             </div>
           </section>
+
           <section>
             <h2>
               <span>2</span>Phương thức thanh toán
             </h2>
             <label
-              className={`payment-option ${payment === "cod" ? "active" : ""}`}
+              className={`payment-option ${
+                payment === "cod" ? "active" : ""
+              }`}
             >
               <input
                 type="radio"
@@ -800,12 +1335,15 @@ function Checkout({
                 onChange={() => setPayment("cod")}
               />
               <span>
-                <b>Thanh toán khi nhận hàng</b>
-                <small>Thanh toán bằng tiền mặt khi sách được giao tới.</small>
+                <b>Thanh toán khi nhận hàng (COD)</b>
+                <small>Thanh toán tiền mặt khi shipper giao sách tới nơi.</small>
               </span>
             </label>
+
             <label
-              className={`payment-option ${payment === "bank" ? "active" : ""}`}
+              className={`payment-option ${
+                payment === "bank" ? "active" : ""
+              }`}
             >
               <input
                 type="radio"
@@ -814,24 +1352,84 @@ function Checkout({
                 onChange={() => setPayment("bank")}
               />
               <span>
-                <b>Chuyển khoản ngân hàng</b>
-                <small>Quét mã QR hoặc chuyển khoản nhanh 24/7.</small>
+                <b>Chuyển khoản trực tuyến qua VietQR</b>
+                <small>
+                  Quét mã QR qua ứng dụng ngân hàng xác nhận đơn nhanh.
+                </small>
               </span>
             </label>
+
+            {payment === "bank" && (
+              <div
+                style={{
+                  marginTop: "16px",
+                  padding: "16px",
+                  background: "#f9f8f3",
+                  borderRadius: "10px",
+                  border: "1px dashed #df6b43",
+                  textAlign: "center",
+                }}
+              >
+                <p
+                  style={{
+                    margin: "0 0 10px",
+                    fontWeight: 600,
+                    color: "#1f3026",
+                    fontSize: "14px",
+                  }}
+                >
+                  Quét mã QR để thanh toán:
+                </p>
+                <img
+                  src={`https://api.vietqr.io/image/970422-0987654321-compact2.jpg?amount=${grandTotal}&addInfo=MOCBOOKS%20THANHTOAN&accountName=MOC%20BOOKS`}
+                  alt="Mã QR Chuyển Khoản"
+                  style={{
+                    width: "220px",
+                    height: "auto",
+                    borderRadius: "8px",
+                    border: "1px solid #ddd",
+                  }}
+                />
+                <div
+                  style={{
+                    fontSize: "12px",
+                    color: "#666",
+                    marginTop: "10px",
+                    lineHeight: "1.5",
+                  }}
+                >
+                  Ngân hàng: <b>MB Bank (Quân Đội)</b> • STK:{" "}
+                  <b>0987654321</b>
+                  <br />
+                  Chủ TK: <b>MỘC BOOKS</b> • Số tiền:{" "}
+                  <b style={{ color: "#df6b43" }}>{money(grandTotal)}</b>
+                </div>
+              </div>
+            )}
           </section>
         </div>
+
         <aside className="order-summary">
           <h2>Đơn hàng của bạn</h2>
-          {items.map((p) => (
-            <div className="order-item" key={p.id}>
-              <BookCover product={p} />
-              <div>
-                <b>{p.title}</b>
-                <small>Số lượng: {cart[p.id]}</small>
+          <div
+            style={{
+              maxHeight: "280px",
+              overflowY: "auto",
+              marginBottom: "16px",
+            }}
+          >
+            {items.map((p) => (
+              <div className="order-item" key={p.id}>
+                <BookCover product={p} />
+                <div>
+                  <b>{p.title}</b>
+                  <small>Số lượng: {cart[p.id]}</small>
+                </div>
+                <strong>{money(p.price * cart[p.id])}</strong>
               </div>
-              <strong>{money(p.price * cart[p.id])}</strong>
-            </div>
-          ))}
+            ))}
+          </div>
+
           <div className="costs">
             <p>
               <span>Tạm tính</span>
@@ -842,15 +1440,25 @@ function Checkout({
               <b>{shipping ? money(shipping) : "Miễn phí"}</b>
             </p>
             <div>
-              <span>Tổng cộng</span>
-              <strong>{money(subtotal + shipping)}</strong>
+              <span>Tổng thanh toán</span>
+              <strong style={{ color: "#df6b43", fontSize: "20px" }}>
+                {money(grandTotal)}
+              </strong>
             </div>
           </div>
-          <button className="button primary full" type="submit">
-            Đặt hàng <Icon name="arrow" />
+
+          <button
+            className="button primary full"
+            type="submit"
+            disabled={items.length === 0}
+          >
+            {payment === "bank"
+              ? "Tôi đã chuyển khoản - Xác nhận đặt hàng"
+              : "Xác nhận đặt hàng"}{" "}
+            <Icon name="arrow" />
           </button>
           <small className="secure">
-            <Icon name="shield" size={16} /> Thông tin của bạn luôn được bảo mật
+            <Icon name="shield" size={16} /> Thông tin và giao dịch luôn được bảo mật
           </small>
         </aside>
       </form>
@@ -858,413 +1466,7 @@ function Checkout({
   )
 }
 
-function AuthModal({ onClose }: { onClose: () => void }) {
-  const [mode, setMode] = useState<"login" | "register">("login")
-  const [success, setSuccess] = useState(false)
-  return (
-    <div className="overlay auth-overlay" onMouseDown={onClose}>
-      <div className="auth-modal" onMouseDown={(e) => e.stopPropagation()}>
-        <button className="auth-close" onClick={onClose}>
-          <Icon name="close" />
-        </button>
-        <Logo onClick={onClose} />
-        {success ? (
-          <div className="auth-success">
-            <span>
-              <Icon name="check" size={32} />
-            </span>
-            <h2>Chào mừng bạn đến với Mộc</h2>
-            <p>
-              Tài khoản đã sẵn sàng để cùng bạn khám phá những trang sách mới.
-            </p>
-            <button className="button primary full" onClick={onClose}>
-              Bắt đầu khám phá
-            </button>
-          </div>
-        ) : (
-          <>
-            <div className="auth-heading">
-              <span className="eyebrow">
-                {mode === "login"
-                  ? "Chào mừng trở lại"
-                  : "Gia nhập cộng đồng Mộc"}
-              </span>
-              <h2>
-                {mode === "login" ? "Đăng nhập tài khoản" : "Tạo tài khoản mới"}
-              </h2>
-            </div>
-            <div className="auth-tabs">
-              <button
-                className={mode === "login" ? "active" : ""}
-                onClick={() => setMode("login")}
-              >
-                Đăng nhập
-              </button>
-              <button
-                className={mode === "register" ? "active" : ""}
-                onClick={() => setMode("register")}
-              >
-                Đăng ký
-              </button>
-            </div>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                setSuccess(true)
-              }}
-            >
-              {mode === "register" && (
-                <label>
-                  Họ và tên
-                  <input required placeholder="Tên của bạn" />
-                </label>
-              )}
-              <label>
-                Email
-                <input required type="email" placeholder="ban@email.com" />
-              </label>
-              <label>
-                Mật khẩu
-                <input
-                  required
-                  type="password"
-                  placeholder="Tối thiểu 8 ký tự"
-                />
-              </label>
-              {mode === "login" && (
-                <div className="form-meta">
-                  <label>
-                    <input type="checkbox" /> Ghi nhớ tôi
-                  </label>
-                  <button type="button">Quên mật khẩu?</button>
-                </div>
-              )}
-              <button className="button primary full">
-                {mode === "login" ? "Đăng nhập" : "Tạo tài khoản"}{" "}
-                <Icon name="arrow" />
-              </button>
-            </form>
-            <p className="auth-policy">
-              Bằng việc tiếp tục, bạn đồng ý với Điều khoản và Chính sách bảo
-              mật của Mộc.
-            </p>
-          </>
-        )}
-      </div>
-    </div>
-  )
-}
-
-type Message = {
-  from: "bot" | "user"
-  text: string
-  bookId?: number
-}
-
-function Chatbot({
-  onAdd,
-  onCheckout,
-}: {
-  onAdd: (id: number) => void
-  onCheckout: () => void
-}) {
-  const [open, setOpen] = useState(false)
-  const [input, setInput] = useState("")
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      from: "bot",
-      text: "Chào bạn, mình là Mầm – trợ lý tư vấn tại Mộc Books 🌱 Bạn đang tìm cuốn sách như thế nào: xoa dịu tâm trạng, tư duy tài chính, hay món quà ý nghĩa tặng người thương? Mầm sẵn sàng gợi ý ngay cuốn sách hay nhất kèm ưu đãi hôm nay nhé!",
-    },
-  ])
-  const suggestions = [
-    "🎁 Quà tặng người yêu",
-    "🌿 Sách chữa lành",
-    "💰 Học làm giàu",
-    "⚡ Mã giảm giá hôm nay",
-  ]
-
-  function send(text: string) {
-    if (!text.trim()) return
-    const lower = text.toLowerCase().trim()
-    const userMsg: Message = { from: "user", text: text.trim() }
-
-    const isFood = ["ăn", "cơm", "đói", "uống", "chx ăn", "chưa ăn"].some((k) =>
-      lower.includes(k),
-    )
-    const isChitChat = [
-      "người yêu",
-      "thời tiết",
-      "mưa",
-      "nắng",
-      "bao nhiêu tuổi",
-      "ở đâu",
-      "ai đó",
-    ].some((k) => lower.includes(k))
-    const isLove = [
-      "tình",
-      "yêu",
-      "crush",
-      "quà",
-      "tặng",
-      "bạn gái",
-      "người thương",
-    ].some((k) => lower.includes(k))
-    const isHeal = [
-      "chữa lành",
-      "buồn",
-      "stress",
-      "mệt",
-      "áp lực",
-      "bình an",
-      "tâm",
-      "ngủ",
-    ].some((k) => lower.includes(k))
-    const isRich = [
-      "tiền",
-      "giàu",
-      "kinh tế",
-      "đầu tư",
-      "tài chính",
-      "kinh doanh",
-    ].some((k) => lower.includes(k))
-    const isBeginner = ["mới", "ngắn", "dễ đọc", "lười", "ngại"].some((k) =>
-      lower.includes(k),
-    )
-    const isDiscount = [
-      "mã",
-      "voucher",
-      "giảm giá",
-      "sale",
-      "khuyến mãi",
-      "freeship",
-    ].some((k) => lower.includes(k))
-    const isBookGeneral = ["sách", "đọc", "tác giả", "mua", "tìm", "cuốn"].some(
-      (k) => lower.includes(k),
-    )
-
-    let botMsg: Message
-
-    if (isFood) {
-      botMsg = {
-        from: "bot",
-        text: "Dạ Mầm xin lỗi bạn nhiều nha! Hiện tại Mầm chỉ là trợ lý chuyên tư vấn về các tựa sách và đơn hàng tại Mộc Books thôi nè 😊 (Bạn nhớ đi ăn cơm nghỉ ngơi cho ấm bụng trước nhé!).\n\nCòn nếu sau bữa ăn bạn đang tìm một 'món ăn tinh thần' để thư giãn, Mầm xin gợi ý cuốn sách bán chạy nhất tuần này của Mộc: “Ngày Xưa Có Một Chuyện Tình” (Nguyễn Nhật Ánh) – đang được giảm 20% hôm nay!",
-        bookId: 1,
-      }
-    } else if (isChitChat && !isBookGeneral) {
-      botMsg = {
-        from: "bot",
-        text: "Dạ Mầm xin lỗi bạn nhiều nha! Hiện tại Mầm chỉ là trợ lý chuyên tư vấn sách và hỗ trợ đơn hàng tại Mộc Books thôi nè 😊.\n\nCâu hỏi của bạn chưa liên quan đến sản phẩm của Mộc rồi. Nhưng nếu bạn muốn tìm một cuốn sách hay để thư giãn sau giờ học tập, làm việc, Mầm gợi ý ngay cuốn “Cây Cam Ngọt Của Tôi” – cuốn sách sưởi ấm hàng triệu trái tim!",
-        bookId: 2,
-      }
-    } else if (isLove) {
-      botMsg = {
-        from: "bot",
-        text: "Món quà tinh tế nhất chính là một cuốn sách! Mầm gợi ý “Ngày Xưa Có Một Chuyện Tình” của Nguyễn Nhật Ánh (4.9/5 ⭐). Mộc tặng kèm bookmark xinh xắn và hỗ trợ gói quà vintage nơ thừng miễn phí cho bạn đó ạ!",
-        bookId: 1,
-      }
-    } else if (isHeal) {
-      botMsg = {
-        from: "bot",
-        text: "Nếu bạn đang tìm chốn bình yên cho tâm hồn, Mầm gợi ý cuốn “Không Diệt Không Sinh Đừng Sợ Hãi” (Thích Nhất Hạnh) hoặc “Cây Cam Ngọt Của Tôi”. Những trang sách như một tách trà ấm xoa dịu mọi âu lo.",
-        bookId: 6,
-      }
-    } else if (isRich) {
-      botMsg = {
-        from: "bot",
-        text: "Đầu tư cho tư duy tài chính là khoản đầu tư sinh lời nhất! Cuốn “Tâm Lý Học Về Tiền” của Morgan Housel đang được giảm sốc 32% chỉ còn 128.000đ tại Mộc. Đừng bỏ lỡ nhé!",
-        bookId: 3,
-      }
-    } else if (isBeginner) {
-      botMsg = {
-        from: "bot",
-        text: "Dành cho người mới bắt đầu, không gì tuyệt vời hơn “Nhà Giả Kim” – chỉ hơn 200 trang, dễ đọc, cực kỳ lôi cuốn và truyền cảm hứng theo đuổi giấc mơ mãnh liệt. Độc giả Mộc đánh giá 4.7/5 ⭐!",
-        bookId: 4,
-      }
-    } else if (isDiscount) {
-      botMsg = {
-        from: "bot",
-        text: "🎉 Mầm tặng bạn mã ưu đãi hôm nay:\n• Nhập mã MOC15: Giảm ngay 15% cho mọi đơn hàng\n• Đơn từ 299.000đ: Tự động MIỄN PHÍ VẬN CHUYỂN toàn quốc!\nHãy thêm sách vào giỏ và thanh toán ngay nhé!",
-      }
-    } else if (
-      !isBookGeneral &&
-      lower.length > 2 &&
-      !products.some(
-        (p) =>
-          p.title.toLowerCase().includes(lower) ||
-          p.author.toLowerCase().includes(lower),
-      )
-    ) {
-      botMsg = {
-        from: "bot",
-        text: "Dạ Mầm xin lỗi bạn nhiều nha! Hiện tại Mầm chỉ hỗ trợ giải đáp các thông tin về sách và đặt hàng tại Mộc Books thôi ạ 😊.\n\nNhưng nếu bạn muốn khám phá một cuốn sách hay được yêu thích nhất hôm nay, Mầm xin gợi ý cuốn “Nhà Giả Kim” đang có ưu đãi tại Mộc nhé!",
-        bookId: 4,
-      }
-    } else {
-      const matched = products.find(
-        (p) =>
-          p.title.toLowerCase().includes(lower) ||
-          p.author.toLowerCase().includes(lower),
-      )
-      if (matched) {
-        botMsg = {
-          from: "bot",
-          text: `Tuyệt vời! Mộc đang có sẵn cuốn “${matched.title}” của tác giả ${matched.author} với giá chỉ ${money(matched.price)} (đánh giá ${matched.rating}/5 ⭐). Bạn có thể thêm vào giỏ ngay bên dưới nè!`,
-          bookId: matched.id,
-        }
-      } else {
-        botMsg = {
-          from: "bot",
-          text: "Mầm hiểu rồi nè! Mộc xin gợi ý cuốn sách kinh điển “Cây Cam Ngọt Của Tôi” – cuốn sách bán chạy được độc giả Mộc yêu thích nhất. Bạn tham khảo ngay nhé!",
-          bookId: 2,
-        }
-      }
-    }
-
-    setMessages((prev) => [...prev, userMsg, botMsg])
-    setInput("")
-  }
-
-  return (
-    <div className="chatbot">
-      {open && (
-        <div className="chat-window">
-          <div className="chat-header">
-            <div className="bot-avatar">
-              <Icon name="spark" />
-            </div>
-            <div>
-              <b>Mầm tư vấn sách</b>
-              <span>
-                <i /> Đang trực tuyến
-              </span>
-            </div>
-            <button onClick={() => setOpen(false)} aria-label="Đóng chat">
-              <Icon name="close" />
-            </button>
-          </div>
-          <div className="messages">
-            {messages.map((m, index) => {
-              const book = m.bookId
-                ? products.find((p) => p.id === m.bookId)
-                : undefined
-              return (
-                <div key={index} className={`message ${m.from}`}>
-                  <div style={{ whiteSpace: "pre-line" }}>{m.text}</div>
-                  {book && (
-                    <div
-                      style={{
-                        marginTop: "10px",
-                        padding: "10px",
-                        background: "white",
-                        borderRadius: "8px",
-                        border: "1px solid #dcd9cd",
-                        color: "#1f3026",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "baseline",
-                          marginBottom: "6px",
-                        }}
-                      >
-                        <b style={{ fontSize: "12px" }}>{book.title}</b>
-                        <span
-                          style={{
-                            color: "#df6b43",
-                            fontWeight: 700,
-                            fontSize: "12px",
-                          }}
-                        >
-                          {money(book.price)}
-                        </span>
-                      </div>
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: "6px",
-                          marginTop: "8px",
-                        }}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => onAdd(book.id)}
-                          style={{
-                            flex: 1,
-                            height: "30px",
-                            fontSize: "11px",
-                            fontWeight: 600,
-                            background: "#f1f0e8",
-                            border: "1px solid #cfcec4",
-                            borderRadius: "4px",
-                            cursor: "pointer",
-                          }}
-                        >
-                          + Thêm vào giỏ
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onAdd(book.id)
-                            onCheckout()
-                            setOpen(false)
-                          }}
-                          style={{
-                            flex: 1,
-                            height: "30px",
-                            fontSize: "11px",
-                            fontWeight: 600,
-                            background: "#df6b43",
-                            color: "white",
-                            border: 0,
-                            borderRadius: "4px",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Mua ngay
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-          <div className="suggestions">
-            {suggestions.map((s) => (
-              <button key={s} type="button" onClick={() => send(s)}>
-                {s}
-              </button>
-            ))}
-          </div>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              send(input)
-            }}
-          >
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Hỏi Mầm về sách..."
-            />
-            <button aria-label="Gửi">
-              <Icon name="send" size={18} />
-            </button>
-          </form>
-        </div>
-      )}
-      <button className="chat-trigger" onClick={() => setOpen(!open)}>
-        <span>
-          <Icon name={open ? "close" : "spark"} />
-        </span>
-        {!open && <b>Nhờ Mầm tư vấn</b>}
-      </button>
-    </div>
-  )
-}
-
+// 11. CHÂN TRANG (Footer)
 function Footer({ onCatalog }: { onCatalog: () => void }) {
   return (
     <footer>
@@ -1290,8 +1492,9 @@ function Footer({ onCatalog }: { onCatalog: () => void }) {
         <div>
           <h4>Ghé thăm Mộc</h4>
           <p>
-            35 Nguyễn Bỉnh Khiêm, Quận 1<br />
-            TP. Hồ Chí Minh
+            98 Nguyễn Hữu Quỳnh, Hiệp Hòa
+            <br />
+            Bắc Ninh
           </p>
           <p>
             hello@mocbooks.vn
@@ -1308,28 +1511,125 @@ function Footer({ onCatalog }: { onCatalog: () => void }) {
   )
 }
 
+// 12. ĐIỀU PHỐI CHÍNH (App Component)
 export default function App() {
-  const [view, setView] = useState<"home" | "catalog" | "checkout">("home")
-  const [cart, setCart] = useState<Record<number, number>>({})
+  const [view, setView] = useState<"home" | "catalog" | "checkout" | "orders">(
+    "home"
+  )
+
+  // Đọc giỏ hàng từ localStorage
+  const [cart, setCart] = useState<Record<number, number>>(() => {
+    try {
+      const savedCart = localStorage.getItem("moc_cart")
+      return savedCart ? JSON.parse(savedCart) : {}
+    } catch {
+      return {}
+    }
+  })
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("moc_cart", JSON.stringify(cart))
+    } catch (e) {
+      console.error(e)
+    }
+  }, [cart])
+
+  // Quản lý và lưu trữ Lịch sử đơn hàng
+  const [orders, setOrders] = useState<Order[]>(() => {
+    try {
+      const saved = localStorage.getItem("moc_orders")
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("moc_orders", JSON.stringify(orders))
+    } catch (e) {
+      console.error(e)
+    }
+  }, [orders])
+
+  function handleSaveOrder(order: Order) {
+    setOrders((prev) => [order, ...prev])
+  }
+
   const [cartOpen, setCartOpen] = useState(false)
   const [authOpen, setAuthOpen] = useState(false)
   const [query, setQuery] = useState("")
+
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    try {
+      const saved = localStorage.getItem("moc_current_user")
+      return saved ? JSON.parse(saved) : null
+    } catch {
+      return null
+    }
+  })
+
+  function handleLogout() {
+    localStorage.removeItem("moc_current_user")
+    setCurrentUser(null)
+  }
+
   const cartCount = Object.values(cart).reduce((sum, value) => sum + value, 0)
 
   function go(next: typeof view) {
     setView(next)
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
+
   function add(id: number) {
     setCart((c) => ({ ...c, [id]: (c[id] || 0) + 1 }))
     setCartOpen(true)
   }
+
+  function buyNow(id: number) {
+    setCart((c) => ({ ...c, [id]: (c[id] || 0) + 1 }))
+    setCartOpen(false)
+    go("checkout")
+  }
+
   function quantity(id: number, delta: number) {
     setCart((c) => {
       const next = { ...c, [id]: (c[id] || 0) + delta }
       if (next[id] <= 0) delete next[id]
       return next
     })
+  }
+
+  function removeItem(id: number) {
+    setCart((c) => {
+      const next = { ...c }
+      delete next[id]
+      return next
+    })
+  }
+
+  function scrollToElement(id: string) {
+    const el = document.getElementById(id)
+    if (el) el.scrollIntoView({ behavior: "smooth" })
+  }
+
+  function handleGoBestseller() {
+    if (view !== "home") {
+      setView("home")
+      setTimeout(() => scrollToElement("bestseller"), 100)
+    } else {
+      scrollToElement("bestseller")
+    }
+  }
+
+  function handleGoAbout() {
+    if (view !== "home") {
+      setView("home")
+      setTimeout(() => scrollToElement("about"), 100)
+    } else {
+      scrollToElement("about")
+    }
   }
 
   return (
@@ -1340,17 +1640,52 @@ export default function App() {
         onAuth={() => setAuthOpen(true)}
         onHome={() => go("home")}
         onCatalog={() => go("catalog")}
+        onBestseller={handleGoBestseller}
+        onAbout={handleGoAbout}
+        onOrders={() => go("orders")}
         query={query}
         setQuery={(value) => {
           setQuery(value)
           if (value && view !== "catalog") go("catalog")
         }}
+        currentUser={currentUser}
+        onLogout={handleLogout}
       />
 
-      {view === "home" && <Home onAdd={add} onCatalog={() => go("catalog")} />}
-      {view === "catalog" && <Catalog onAdd={add} query={query} />}
+      {view === "home" && (
+        <Home
+          onAdd={add}
+          onBuyNow={buyNow}
+          onCatalog={() => go("catalog")}
+        />
+      )}
+
+      {view === "catalog" && (
+        <Catalog
+          onAdd={add}
+          onBuyNow={buyNow}
+          query={query}
+        />
+      )}
+
+      {view === "orders" && (
+        <OrderHistory
+          orders={orders}
+          onHome={() => go("home")}
+          onCatalog={() => go("catalog")}
+        />
+      )}
+
       {view === "checkout" && (
-        <Checkout cart={cart} onSuccess={() => setCart({})} />
+        <Checkout
+          cart={cart}
+          onHome={() => go("home")}
+          onSaveOrder={handleSaveOrder}
+          onSuccess={() => {
+            setCart({})
+            localStorage.removeItem("moc_cart")
+          }}
+        />
       )}
 
       <Footer onCatalog={() => go("catalog")} />
@@ -1360,6 +1695,7 @@ export default function App() {
           cart={cart}
           onClose={() => setCartOpen(false)}
           onQuantity={quantity}
+          onRemove={removeItem}
           onCheckout={() => {
             setCartOpen(false)
             go("checkout")
@@ -1367,7 +1703,15 @@ export default function App() {
         />
       )}
 
-      {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
+      {authOpen && (
+        <AuthModal
+          onClose={() => setAuthOpen(false)}
+          onLoginSuccess={(user) => {
+            setCurrentUser(user)
+            setAuthOpen(false)
+          }}
+        />
+      )}
 
       <Chatbot
         onAdd={add}
