@@ -25,6 +25,7 @@ export default defineConfig(({ mode }) => {
       figmaErrorOverlayReplay(),
       figmaReactRefreshBoundaryFallback(),
       figmaMakeKitPlugin({ storiesGlob: "/src/**/*.stories.{ts,tsx,js,jsx}" }),
+      cloudflareWorkersAiDevPlugin(),
     ],
     resolve: {
       alias: {
@@ -407,6 +408,70 @@ function figmaMakeKitPlugin(options: {
           res.end(await server.transformIndexHtml(url, HTML_BOOTSTRAP))
         } catch (err) {
           next(err as Error)
+        }
+      })
+    },
+  }
+}
+
+
+function cloudflareWorkersAiDevPlugin(): Plugin {
+  return {
+    name: "cloudflare-workers-ai-dev",
+    configureServer(server) {
+      server.middlewares.use("/api/chat", (req, res) => {
+        if (req.method === "POST") {
+          let body = ""
+          req.on("data", (chunk: any) => {
+            body += chunk
+          })
+          req.on("end", () => {
+            try {
+              const data = JSON.parse(body || "{}")
+              const message = (data.message || "").toLowerCase()
+              let response = ""
+              let bookId: number | undefined
+
+              if (["chữa lành", "buồn", "stress", "mệt", "áp lực", "bình an"].some((k) => message.includes(k))) {
+                response = "Mầm hiểu những lúc tâm trạng cần một chốn bình yên 🌱. Mầm gợi ý bạn cuốn “Không Diệt Không Sinh Đừng Sợ Hãi” (Thích Nhất Hạnh) hoặc “Cây Cam Ngọt Của Tôi”. Từng trang sách như một tách trà ấm xoa dịu đi những âu lo thường nhật của bạn."
+                bookId = 6
+              } else if (["tiền", "giàu", "kinh tế", "tài chính", "đầu tư", "kinh doanh"].some((k) => message.includes(k))) {
+                response = "Đầu tư cho tư duy tài chính luôn là khoản sinh lời bền vững nhất! Mầm xin gợi ý ngay cuốn “Tâm Lý Học Về Tiền” của tác giả Morgan Housel – phân tích tâm lý tài chính sâu sắc, đang có ưu đãi 32% tại Mộc."
+                bookId = 3
+              } else if (["tình", "yêu", "crush", "quà", "tặng", "bạn gái"].some((k) => message.includes(k))) {
+                response = "Một cuốn sách chứa đầy kỷ niệm và sự tinh tế chính là món quà tuyệt vời nhất! Mầm gợi ý cuốn “Ngày Xưa Có Một Chuyện Tình” của Nguyễn Nhật Ánh. Mộc hỗ trợ bạn gói quà vintage nơ thừng và tặng thiệp miễn phí nhé!"
+                bookId = 1
+              } else if (["mã", "voucher", "giảm giá", "sale", "khuyến mãi", "freeship"].some((k) => message.includes(k))) {
+                response = "🎉 Mầm tặng bạn ưu đãi hôm nay:\n• Nhập mã MOC15: Giảm ngay 15% tổng hóa đơn\n• Đơn từ 299.000đ: Miễn phí vận chuyển toàn quốc!\nBạn có muốn Mầm gợi ý thêm tựa sách hay nào không nè?"
+              } else if (["mới", "ngắn", "dễ đọc", "lười"].some((k) => message.includes(k))) {
+                response = "Dành cho người mới bắt đầu đọc, không gì tuyệt vời hơn “Nhà Giả Kim” – chỉ hơn 200 trang, dễ đọc, cực kỳ lôi cuốn và truyền cảm hứng theo đuổi ước mơ mãnh liệt!"
+                bookId = 4
+              } else if (["ăn", "cơm", "đói", "uống"].some((k) => message.includes(k))) {
+                response = "Dạ Mầm xin chào bạn! Mầm là trợ lý tư vấn sách tại Mộc Books thôi nè 😊 Bạn nhớ nạp năng lượng ăn uống nghỉ ngơi trước nhé! Sau đó, nếu cần một cuốn sách hay để thư giãn, Mầm gợi ý ngay cuốn “Cây Cam Ngọt Của Tôi” nha!"
+                bookId = 2
+              } else {
+                response = "Dạ Mầm rất vui được hỗ trợ bạn! Dựa trên câu hỏi, Mầm gợi ý cuốn sách kinh điển “Cây Cam Ngọt Của Tôi” – tác phẩm sưởi ấm hàng triệu trái tim độc giả Mộc Books."
+                bookId = 2
+              }
+
+              res.setHeader("Content-Type", "application/json; charset=utf-8")
+              res.end(
+                JSON.stringify({
+                  response,
+                  bookId,
+                  model: "@cf/meta/llama-3-8b-instruct",
+                  edgeLocation: "Local Dev (Cloudflare Workers AI Simulator)",
+                  retrievedBooks: bookId ? [bookId] : [1, 2],
+                })
+              )
+            } catch (e: any) {
+              res.statusCode = 500
+              res.end(JSON.stringify({ error: e.message }))
+            }
+          })
+        } else {
+          res.statusCode = 200
+          res.end()
         }
       })
     },

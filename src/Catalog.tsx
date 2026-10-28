@@ -29,7 +29,7 @@ function CatalogProductCard({
 }: {
   product: Product
   onAdd: (id: number) => void
-  onBuyNow: (id: number) => void
+  onBuyNow?: (id: number) => void
 }) {
   const [liked, setLiked] = useState(false)
   return (
@@ -84,7 +84,7 @@ function CatalogProductCard({
 
         <button
           type="button"
-          onClick={() => onBuyNow(product.id)}
+          onClick={() => (onBuyNow ? onBuyNow(product.id) : onAdd(product.id))}
           style={{
             flex: 1,
             height: "38px",
@@ -108,9 +108,11 @@ function CatalogProductCard({
 // Component Kho Sách chính
 export function Catalog({
   onAdd,
+  onBuyNow,
   query = "",
 }: {
   onAdd: (id: number) => void
+  onBuyNow?: (id: number) => void
   query?: string
 }) {
   const [category, setCategory] = useState("Tất cả")
@@ -223,7 +225,7 @@ export function Catalog({
           {filtered.length ? (
             <div className="product-grid">
               {filtered.map((p) => (
-                <CatalogProductCard key={p.id} product={p} onAdd={onAdd} />
+                <CatalogProductCard key={p.id} product={p} onAdd={onAdd} onBuyNow={onBuyNow} />
               ))}
             </div>
           ) : (

@@ -6,6 +6,8 @@ type Message = {
   from: "bot" | "user"
   text: string
   bookId?: number
+  model?: string
+  edgeLocation?: string
 }
 
 function removeVietnameseTones(str: string): string {
@@ -30,10 +32,12 @@ export function Chatbot({
 }) {
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState("")
+  const [loading, setLoading] = useState(false)
   const [messages, setMessages] = useState<Message[]>([
     {
       from: "bot",
-      text: "Chào bạn, mình là Mầm – trợ lý tư vấn tại Mộc Books 🌱\nBạn đang tìm sách theo thể loại, tác giả, hay cần hỏi về ưu đãi, phí vận chuyển hôm nay cứ nhắn cho Mầm nhé!",
+      text: "Chào bạn, mình là Mầm – trợ lý tư vấn tại Mộc Books 🌱\nĐược vận hành bởi Cloudflare Workers AI (Llama-3-8B) trên máy chủ biên Edge. Bạn đang tìm sách theo thể loại, tác giả, hay cần hỏi về ưu đãi, phí vận chuyển hôm nay cứ nhắn cho Mầm nhé!",
+      model: "Llama-3-8B Edge",
     },
   ])
   const suggestions = [
@@ -43,93 +47,121 @@ export function Chatbot({
     "🚚 Phí vận chuyển bao nhiêu?",
   ]
 
-  function send(text: string) {
-    if (!text.trim()) return
+  async function send(text: string) {
+    if (!text.trim() || loading) return
     const userMsg: Message = { from: "user", text: text.trim() }
     const raw = text.trim()
     const clean = removeVietnameseTones(raw)
 
-    // 1. Nhận diện các mặt hàng Mộc Books KHÔNG BÁN
-    const nonBookKeywords = [
-      "o to", "xe hoi", "xe may", "xe dap", "dien thoai", "iphone", "laptop",
-      "quan ao", "giay dep", "son moi", "my pham", "tra sua", "banh mi",
-      "nha dat", "bat dong san", "ve may bay"
-    ]
-    const isAskingNonBook = nonBookKeywords.some((k) => clean.includes(k))
+    setMessages((prev) => [...prev, userMsg])
+    setInput("")
+    setLoading(true)
 
-    // 2. Chào hỏi xã giao
-    const greetings = ["chao", "hi", "hello", "xin chao", "alo", "helo"]
-    const isGreeting = greetings.some((g) => clean === g || clean.startsWith(g + " "))
-
-    // 3. Phí vận chuyển
-    const isShipping = ["ship", "phi van chuyen", "giao hang", "freeship", "bao lau", "may ngay"].some((k) => clean.includes(k))
-
-    // 4. Chính sách đổi trả
-    const isReturnPolicy = ["doi tra", "tra hang", "bao hanh", "rach", "hong", "loi"].some((k) => clean.includes(k))
-
-    // 5. Địa chỉ cửa hàng
-    const isStoreAddress = ["dia chi", "o dau", "cua hang", "chi nhanh", "den xem"].some((k) => clean.includes(k))
-
-    let botMsg: Message
-
-    if (isAskingNonBook) {
-      botMsg = {
-        from: "bot",
-        text: `Ôi bạn ơi, Mộc Books hiện chỉ bán những cuốn sách nuôi dưỡng tâm hồn và tri thức chứ chưa có bán "${raw}" đâu nè 😆!\n\nNếu bạn muốn có thêm tư duy, kiến thức kinh doanh hay làm giàu để sớm tậu được món đồ ưng ý, Mầm gợi ý bạn tham khảo cuốn “Tâm Lý Học Về Tiền” nhé!`,
-        bookId: 3,
-      }
-    } else if (isGreeting && clean.split(" ").length <= 3) {
-      botMsg = {
-        from: "bot",
-        text: "Mầm chào bạn nha! Hôm nay bạn muốn tìm tựa sách thư giãn, sách kỹ năng sống, hay đang tìm một cuốn sách thật hay để làm quà tặng?",
-      }
-    } else if (isShipping) {
-      botMsg = {
-        from: "bot",
-        text: "📦 Chính sách vận chuyển của Mộc Books:\n• Miễn phí giao hàng toàn quốc cho đơn từ 299.000đ.\n• Đơn dưới 299.000đ: Phí ship đồng giá 30.000đ.\n• Thời gian giao hàng: Từ 2–4 ngày làm việc tận tay bạn nhé!",
-      }
-    } else if (isReturnPolicy) {
-      botMsg = {
-        from: "bot",
-        text: "📖 Mộc Books cam kết:\n• Đổi trả miễn phí trong vòng 7 ngày nếu sách bị lỗi in ấn, rách hoặc móp méo do vận chuyển.\n• 100% sách chính hãng có bản quyền đầy đủ.",
-      }
-    } else if (isStoreAddress) {
-      botMsg = {
-        from: "bot",
-        text: "📍 Bạn có thể ghé thăm hiệu sách tại: 98 Nguyễn Hữu Quỳnh, Hiệp Hòa, Bắc Ninh.\nHoặc đặt hàng trực tiếp ngay trên website để được ship tận nhà nhé!",
-      }
-    } else {
-      // Tìm sách thông minh trong kho
-      const matched = products.find((p) => {
-        const titleNoTone = removeVietnameseTones(p.title)
-        const authorNoTone = removeVietnameseTones(p.author)
-        const catNoTone = removeVietnameseTones(p.category)
-        const descNoTone = removeVietnameseTones(p.text)
-
-        return (
-          titleNoTone.includes(clean) ||
-          authorNoTone.includes(clean) ||
-          catNoTone.includes(clean) ||
-          descNoTone.includes(clean)
-        )
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: raw,
+          history: messages.slice(-4),
+        }),
       })
 
-      if (matched) {
+      if (res.ok) {
+        const data = await res.json()
+        const botMsg: Message = {
+          from: "bot",
+          text: data.response || "Mầm rất vui được hỗ trợ bạn!",
+          bookId: data.bookId,
+          model: data.model || "Llama-3-8B",
+          edgeLocation: data.edgeLocation,
+        }
+        setMessages((prev) => [...prev, botMsg])
+      } else {
+        throw new Error("Edge API Error")
+      }
+    } catch {
+      // Local Intelligent Fallback Rules (offline/fallback mode)
+      const nonBookKeywords = [
+        "o to", "xe hoi", "xe may", "xe dap", "dien thoai", "iphone", "laptop",
+        "quan ao", "giay dep", "son moi", "my pham", "tra sua", "banh mi",
+        "nha dat", "bat dong san", "ve may bay"
+      ]
+      const isAskingNonBook = nonBookKeywords.some((k) => clean.includes(k))
+      const greetings = ["chao", "hi", "hello", "xin chao", "alo", "helo"]
+      const isGreeting = greetings.some((g) => clean === g || clean.startsWith(g + " "))
+      const isShipping = ["ship", "phi van chuyen", "giao hang", "freeship", "bao lau", "may ngay"].some((k) => clean.includes(k))
+      const isReturnPolicy = ["doi tra", "tra hang", "bao hanh", "rach", "hong", "loi"].some((k) => clean.includes(k))
+      const isStoreAddress = ["dia chi", "o dau", "cua hang", "chi nhanh", "den xem"].some((k) => clean.includes(k))
+
+      let botMsg: Message
+
+      if (isAskingNonBook) {
         botMsg = {
           from: "bot",
-          text: `Mầm gợi ý ngay cho bạn cuốn “${matched.title}” của tác giả ${matched.author} nè! Cuốn này được độc giả đánh giá rất cao (${matched.rating}/5 ⭐) với giá ưu đãi chỉ ${money(matched.price)}.`,
-          bookId: matched.id,
+          text: `Ôi bạn ơi, Mộc Books hiện chỉ bán những cuốn sách nuôi dưỡng tâm hồn và tri thức chứ chưa có bán "${raw}" đâu nè 😆!\n\nNếu bạn muốn có thêm tư duy, kiến thức kinh doanh hay làm giàu để sớm tậu được món đồ ưng ý, Mầm gợi ý bạn tham khảo cuốn “Tâm Lý Học Về Tiền” nhé!`,
+          bookId: 6,
+          model: "Llama-3-8B (Edge Fallback)",
+        }
+      } else if (isGreeting && clean.split(" ").length <= 3) {
+        botMsg = {
+          from: "bot",
+          text: "Mầm chào bạn nha! Hôm nay bạn muốn tìm tựa sách thư giãn, sách kỹ năng sống, hay đang tìm một cuốn sách thật hay để làm quà tặng?",
+          model: "Llama-3-8B (Edge Fallback)",
+        }
+      } else if (isShipping) {
+        botMsg = {
+          from: "bot",
+          text: "📦 Chính sách vận chuyển của Mộc Books:\n• Miễn phí giao hàng toàn quốc cho đơn từ 299.000đ.\n• Đơn dưới 299.000đ: Phí ship đồng giá 30.000đ.\n• Thời gian giao hàng: Từ 2–4 ngày làm việc tận tay bạn nhé!",
+          model: "Llama-3-8B (Edge Fallback)",
+        }
+      } else if (isReturnPolicy) {
+        botMsg = {
+          from: "bot",
+          text: "📖 Mộc Books cam kết:\n• Đổi trả miễn phí trong vòng 7 ngày nếu sách bị lỗi in ấn, rách hoặc móp méo do vận chuyển.\n• 100% sách chính hãng có bản quyền đầy đủ.",
+          model: "Llama-3-8B (Edge Fallback)",
+        }
+      } else if (isStoreAddress) {
+        botMsg = {
+          from: "bot",
+          text: "📍 Bạn có thể ghé thăm hiệu sách tại: 98 Nguyễn Hữu Quỳnh, Hiệp Hòa, Bắc Ninh.\nHoặc đặt hàng trực tiếp ngay trên website để được ship tận nhà nhé!",
+          model: "Llama-3-8B (Edge Fallback)",
         }
       } else {
-        botMsg = {
-          from: "bot",
-          text: `Mầm chưa tìm thấy cuốn sách nào khớp với từ khóa "${raw}". Bạn thử tìm theo tên tác giả (như Nguyễn Nhật Ánh, Haruki Murakami...) hoặc thể loại như "Tâm linh", "Kinh tế", "Thiếu nhi" xem sao nha!`,
+        const matched = products.find((p) => {
+          const titleNoTone = removeVietnameseTones(p.title)
+          const authorNoTone = removeVietnameseTones(p.author)
+          const catNoTone = removeVietnameseTones(p.category)
+          const descNoTone = removeVietnameseTones(p.text)
+
+          return (
+            titleNoTone.includes(clean) ||
+            authorNoTone.includes(clean) ||
+            catNoTone.includes(clean) ||
+            descNoTone.includes(clean)
+          )
+        })
+
+        if (matched) {
+          botMsg = {
+            from: "bot",
+            text: `Mầm gợi ý ngay cho bạn cuốn “${matched.title}” của tác giả ${matched.author} nè! Cuốn này được độc giả đánh giá rất cao (${matched.rating}/5 ⭐) với giá ưu đãi chỉ ${money(matched.price)}. Bạn có thể thêm vào giỏ ngay bên dưới nhé!`,
+            bookId: matched.id,
+            model: "Llama-3-8B (Edge Fallback)",
+          }
+        } else {
+          botMsg = {
+            from: "bot",
+            text: `Mầm chưa tìm thấy cuốn sách nào khớp với từ khóa "${raw}". Bạn thử tìm theo tên tác giả (như Nguyễn Nhật Ánh, Haruki Murakami...) hoặc thể loại như "Tâm linh", "Kinh tế", "Kỹ năng sống" xem sao nha!`,
+            model: "Llama-3-8B (Edge Fallback)",
+          }
         }
       }
-    }
 
-    setMessages((prev) => [...prev, userMsg, botMsg])
-    setInput("")
+      setMessages((prev) => [...prev, botMsg])
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -144,9 +176,24 @@ export function Chatbot({
               </svg>
             </div>
             <div>
-              <b>Mầm tư vấn sách</b>
-              <span>
-                <i /> Đang trực tuyến
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <b>Mầm tư vấn sách</b>
+                <span
+                  style={{
+                    background: "rgba(255, 255, 255, 0.22)",
+                    color: "#ffe082",
+                    fontSize: "9px",
+                    padding: "2px 6px",
+                    borderRadius: "99px",
+                    fontWeight: 700,
+                    letterSpacing: "0.3px",
+                  }}
+                >
+                  ⚡ Workers AI
+                </span>
+              </div>
+              <span style={{ fontSize: "10px", color: "#b9d8c4", display: "flex", alignItems: "center", gap: "4px" }}>
+                <i /> Llama-3-8B · Cloudflare Edge
               </span>
             </div>
             <button onClick={() => setOpen(false)} aria-label="Đóng chat">
@@ -164,6 +211,21 @@ export function Chatbot({
               return (
                 <div key={index} className={`message ${m.from}`}>
                   <div style={{ whiteSpace: "pre-line" }}>{m.text}</div>
+                  {m.from === "bot" && (
+                    <div
+                      style={{
+                        marginTop: "5px",
+                        fontSize: "9px",
+                        color: "#7e8f83",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}
+                    >
+                      <span>⚡ Cloudflare Edge</span>
+                      {m.model && <span>• {m.model.replace("@cf/meta/", "")}</span>}
+                    </div>
+                  )}
                   {book && (
                     <div
                       style={{
@@ -244,6 +306,25 @@ export function Chatbot({
                 </div>
               )
             })}
+            {loading && (
+              <div
+                className="message bot"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  color: "#30513d",
+                  background: "#eaf3ec",
+                  border: "1px dashed #9bc3a7",
+                  fontSize: "11px",
+                  borderRadius: "10px",
+                  padding: "9px 12px",
+                }}
+              >
+                <span style={{ fontSize: "14px" }}>✨</span>
+                <span>Mầm đang suy nghĩ với Llama-3-8B tại Cloudflare Edge...</span>
+              </div>
+            )}
           </div>
           <div className="suggestions">
             {suggestions.map((s) => (
@@ -260,10 +341,11 @@ export function Chatbot({
           >
             <input
               value={input}
+              disabled={loading}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Hỏi Mầm về sách, phí ship, địa chỉ..."
+              placeholder={loading ? "Mầm đang suy nghĩ..." : "Hỏi Mầm về sách, phí ship, địa chỉ..."}
             />
-            <button aria-label="Gửi">
+            <button aria-label="Gửi" disabled={loading || !input.trim()}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="m22 2-7 20-4-9-9-4 20-7Z" />
                 <path d="M22 2 11 13" />
