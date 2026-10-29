@@ -93,6 +93,14 @@ export function Chatbot({
       const isShipping = ["ship", "phi van chuyen", "giao hang", "freeship", "bao lau", "may ngay"].some((k) => clean.includes(k))
       const isReturnPolicy = ["doi tra", "tra hang", "bao hanh", "rach", "hong", "loi"].some((k) => clean.includes(k))
       const isStoreAddress = ["dia chi", "o dau", "cua hang", "chi nhanh", "den xem"].some((k) => clean.includes(k))
+      const isJustBrowsing = ["chi vao xem", "khong mua", "ko mua", "xem thoi", "dao choi", "xem choi", "ngam thoi", "luon lo", "tham quan"].some((k) => clean.includes(k))
+      const isPraise = ["dep the", "web dep", "xinh the", "giao dien dep", "xin xo", "dinh the"].some((k) => clean.includes(k))
+      const isFood = ["an com chua", "an com", "doi", "uong nuoc"].some((k) => clean.includes(k))
+      const isIdentity = ["ban la ai", "ai tao ra", "may tuoi", "la gi"].some((k) => clean.includes(k))
+
+
+
+
 
       let botMsg: Message
 
@@ -119,6 +127,30 @@ export function Chatbot({
         botMsg = {
           from: "bot",
           text: "📖 Mộc Books cam kết:\n• Đổi trả miễn phí trong vòng 7 ngày nếu sách bị lỗi in ấn, rách hoặc móp méo do vận chuyển.\n• 100% sách chính hãng có bản quyền đầy đủ.",
+          model: "Llama-3-8B (Edge Fallback)",
+        }
+      } else if (isJustBrowsing) {
+        botMsg = {
+          from: "bot",
+          text: "Dạ không sao hết nè bạn ơi! 😊 Bạn cứ thong thả dạo chơi, ngắm nghía từng cuốn sách nhé. Mộc Books luôn mở rộng cửa đón bạn ghé thăm thư giãn lúc rảnh rỗi. Khi nào cần tìm cuốn gì hay cứ ới Mầm nha!",
+          model: "Llama-3-8B (Edge Fallback)",
+        }
+      } else if (isPraise) {
+        botMsg = {
+          from: "bot",
+          text: "Mầm cảm ơn bạn nhiều nha! 🌱 Đội ngũ Mộc Books đã chăm chút từng góc nhỏ để mang lại cảm giác mộc mạc, bình yên như một tiệm sách gỗ thật sự đó ạ. Chúc bạn có những phút giây thư thái!",
+          model: "Llama-3-8B (Edge Fallback)",
+        }
+      } else if (isFood) {
+        botMsg = {
+          from: "bot",
+          text: "Dạ Mầm là trợ lý AI nên chỉ cần 'nạp' tri thức từ những cuốn sách là no rồi nè! 😆 Bạn nhớ đi ăn uống nghỉ ngơi cho ấm bụng nhé. Sau đó nếu muốn tìm sách thư giãn thì ghé Mầm nha!",
+          model: "Llama-3-8B (Edge Fallback)",
+        }
+      } else if (isIdentity) {
+        botMsg = {
+          from: "bot",
+          text: "Mầm là trợ lý ảo tư vấn sách tại Mộc Books, vận hành bởi Cloudflare Workers AI (Llama-3-8B) trực tiếp tại máy chủ biên Edge. Mầm sinh ra để giúp bạn tìm thấy những cuốn sách ưng ý nhất! 🌱",
           model: "Llama-3-8B (Edge Fallback)",
         }
       } else if (isStoreAddress) {

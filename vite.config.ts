@@ -432,7 +432,13 @@ function cloudflareWorkersAiDevPlugin(): Plugin {
               let response = ""
               let bookId: number | undefined
 
-              if (["chữa lành", "buồn", "stress", "mệt", "áp lực", "bình an"].some((k) => message.includes(k))) {
+              if (["chi vao xem", "chỉ vào xem", "khong mua", "không mua", "ko mua", "xem thoi", "xem thôi", "dao choi", "dạo chơi", "xem choi", "xem chơi", "ngam thoi", "ngắm thôi", "luon lo", "lượn lờ"].some((k) => message.includes(k))) {
+                response = "Dạ không sao hết nè bạn ơi! 😊 Bạn cứ thong thả dạo chơi, ngắm nghía từng cuốn sách nhé. Mộc Books luôn mở rộng cửa đón bạn ghé thăm thư giãn lúc rảnh rỗi. Khi nào cần tìm cuốn gì hay cứ ới Mầm nha!"
+                bookId = undefined
+              } else if (["dep the", "đẹp thế", "web dep", "web đẹp", "giao dien dep", "giao diện đẹp", "xin xo", "xịn xò"].some((k) => message.includes(k))) {
+                response = "Mầm cảm ơn bạn nhiều nha! 🌱 Đội ngũ Mộc Books đã chăm chút từng góc nhỏ để mang lại cảm giác mộc mạc, bình yên như một tiệm sách gỗ thật sự đó ạ. Chúc bạn có những phút giây thư thái!"
+                bookId = undefined
+              } else if (["chữa lành", "buồn", "stress", "mệt", "áp lực", "bình an"].some((k) => message.includes(k))) {
                 response = "Mầm hiểu những lúc tâm trạng cần một chốn bình yên 🌱. Mầm gợi ý bạn cuốn “Không Diệt Không Sinh Đừng Sợ Hãi” (Thích Nhất Hạnh) hoặc “Cây Cam Ngọt Của Tôi”. Từng trang sách như một tách trà ấm xoa dịu đi những âu lo thường nhật của bạn."
                 bookId = 6
               } else if (["tiền", "giàu", "kinh tế", "tài chính", "đầu tư", "kinh doanh"].some((k) => message.includes(k))) {

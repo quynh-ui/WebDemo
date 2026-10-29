@@ -429,19 +429,26 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       .join("\n");
 
     const systemPrompt = `Bạn là "Mầm" - trợ lý AI tư vấn sách thông minh tại hiệu sách "Mộc Books", chạy trực tiếp trên máy chủ biên Cloudflare Workers AI với mô hình Llama-3-8B.
-Tính cách: Ấm áp, nhẹ nhàng, tinh tế, hiểu tâm lý độc giả và chu đáo (xưng là "Mầm", gọi khách là "bạn").
+Tính cách: Ấm áp, dí dỏm, tinh tế, hiểu tâm lý độc giả và rất lịch thiệp (xưng là "Mầm", gọi khách là "bạn").
 
 DỮ LIỆU SÁCH TRUY XUẤT ĐƯỢC TỪ KHO MỘC BOOKS (RAG KNOWLEDGE CONTEXT):
 ${retrievedContext}
 
 CHÍNH SÁCH ƯU ĐÃI:
-- Mã MOC15: Giảm 15% cho mọi đơn hàng.
+- Mã voucher MOC15: Giảm 15% cho mọi đơn hàng.
 - Miễn phí vận chuyển toàn quốc cho đơn từ 299.000đ.
-- Đóng gói vintage nơ thừng và thiệp miễn phí.
+- Đóng gói vintage nơ thừng và thiệp quà tặng miễn phí.
 
-QUY TẮC:
-1. Trả lời bằng tiếng Việt tự nhiên, súc tích (khoảng 2-3 câu).
-2. Khi gợi ý sách, hãy thêm thẻ [RECOMMEND: id_sách] ở cuối tin nhắn (ví dụ: [RECOMMEND: ${retrievedBooks[0].id}]) để hệ thống hiện thẻ mua hàng.`;
+HƯỚNG DẪN XỬ LÝ NGÔN NGỮ TỰ NHIÊN (NATURAL LANGUAGE UNDERSTANDING):
+1. Câu hỏi vu vơ / Khách nói chỉ vào xem, không mua (ví dụ: 'tôi chỉ vào xem web thôi ko mua đâu'):
+   - Hãy vui vẻ, niềm nở, chào đón khách thong thả dạo chơi ngắm sách, tuyệt đối không ép mua hàng. Ví dụ: "Dạ không sao hết nè bạn ơi! Bạn cứ thong thả dạo chơi ngắm sách nhé, Mộc Books luôn là góc nhỏ bình yên đón bạn ghé thăm lúc rảnh rỗi. Khi nào cần tìm cuốn gì hay cứ ới Mầm nha!"
+2. Lời khen giao diện, web đẹp hoặc khen Mầm dễ thương:
+   - Cảm ơn ấm áp, dễ thương.
+3. Hỏi chuyện phiếm, trêu đùa (ăn cơm chưa, người yêu, thời tiết...):
+   - Đáp lại dí dỏm, đáng yêu như một người bạn.
+4. Hỏi về các cuốn sách trong database:
+   - Dựa vào [RAG KNOWLEDGE CONTEXT] để trả lời chính xác tựa sách, tác giả, giá bán, bài học ý nghĩa.
+5. Khi bạn có gợi ý một cuốn sách cụ thể, hãy thêm thẻ [RECOMMEND: id_sách] ở cuối tin nhắn (ví dụ: [RECOMMEND: ${retrievedBooks[0].id}]). Nếu chỉ tán gẫu vu vơ thì KHÔNG cần gắn thẻ này.`;
 
     let generatedText = "";
     let modelUsed = "@cf/meta/llama-3-8b-instruct";
@@ -479,7 +486,21 @@ QUY TẮC:
     // 4. Fallback Generator thông minh nếu chưa bật AI binding
     if (!generatedText) {
       const primaryBook = retrievedBooks[0];
-      if (["chua lanh", "buon", "stress", "met", "ap luc", "binh an"].some((k) => clean.includes(k))) {
+
+      // Nhận diện câu nói vu vơ: vào xem không mua, ngắm sách
+      if (["chi vao xem", "khong mua", "ko mua", "xem thoi", "dao choi", "xem choi", "ngam thoi", "luon lo", "tham quan"].some((k) => clean.includes(k))) {
+        generatedText = "Dạ không sao hết nè bạn ơi! 😊 Bạn cứ thong thả dạo chơi, lật mở từng trang sách nhé. Mộc Books luôn mở rộng cửa đón bạn ghé thăm lúc rảnh rỗi. Khi nào cần tìm một cuốn sách hay để bầu bạn thì cứ nhắn cho Mầm nha!";
+        recommendedBookId = undefined;
+      } else if (["dep the", "web dep", "xinh the", "giao dien dep", "xin xo", "dinh the"].some((k) => clean.includes(k))) {
+        generatedText = "Mầm cảm ơn bạn nhiều nha! 🌱 Đội ngũ Mộc Books đã chăm chút từng góc nhỏ để mang lại cảm giác mộc mạc, bình yên như một tiệm sách gỗ thật sự đó ạ. Chúc bạn có những phút giây thư thái tại Mộc!";
+        recommendedBookId = undefined;
+      } else if (["an com chua", "an com", "doi", "uong nuoc"].some((k) => clean.includes(k))) {
+        generatedText = "Dạ Mầm là trợ lý AI nên chỉ cần 'nạp' tri thức từ những cuốn sách là no rồi nè! 😆 Bạn nhớ đi ăn uống nghỉ ngơi cho ấm bụng nhé. Sau đó nếu muốn thư giãn, ghé Mầm gợi ý một cuốn sách hay nha!";
+        recommendedBookId = undefined;
+      } else if (["ban la ai", "ai tao ra", "may tuoi", "la gi"].some((k) => clean.includes(k))) {
+        generatedText = "Mầm là trợ lý ảo tư vấn sách tại Mộc Books, vận hành bởi Cloudflare Workers AI (Llama-3-8B) trực tiếp tại máy chủ biên Edge. Mầm sinh ra để đồng hành và giúp bạn tìm thấy những cuốn sách ưng ý nhất! 🌱";
+        recommendedBookId = undefined;
+      } else if (["chua lanh", "buon", "stress", "met", "ap luc", "binh an"].some((k) => clean.includes(k))) {
         generatedText = `Mầm hiểu những lúc tâm trạng cần một chốn bình yên 🌱. Mầm gợi ý bạn cuốn “${BOOK_CATALOG[8].title}” (Thích Nhất Hạnh) hoặc “${BOOK_CATALOG[19].title}” (Thầy Minh Niệm). Từng trang sách như một tách trà ấm xoa dịu đi những âu lo thường nhật của bạn.\n[RECOMMEND: ${BOOK_CATALOG[8].id}]`;
         recommendedBookId = BOOK_CATALOG[8].id;
       } else if (["tien", "giau", "kinh te", "tai chinh", "dau tu", "kinh doanh"].some((k) => clean.includes(k))) {
