@@ -20,6 +20,16 @@ function removeVietnameseTones(str: string): string {
     .trim()
 }
 
+function hasPhrase(text: string, phrase: string): boolean {
+  const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const regex = new RegExp(`(^|\\s|[.,!?;])${escaped}($|\\s|[.,!?;])`, "i")
+  return regex.test(text)
+}
+
+function containsAny(text: string, phrases: string[]): boolean {
+  return phrases.some((p) => hasPhrase(text, p))
+}
+
 const money = (value: number) =>
   new Intl.NumberFormat("vi-VN").format(value) + "đ"
 
@@ -81,52 +91,70 @@ export function Chatbot({
         throw new Error("Edge API Error")
       }
     } catch {
-      // Local Intelligent Fallback Rules (offline/fallback mode)
-      const nonBookKeywords = [
-        "o to", "xe hoi", "xe may", "xe dap", "dien thoai", "iphone", "laptop",
-        "quan ao", "giay dep", "son moi", "my pham", "tra sua", "banh mi",
-        "nha dat", "bat dong san", "ve may bay"
-      ]
-      const isAskingNonBook = nonBookKeywords.some((k) => clean.includes(k))
-      const greetings = ["chao", "hi", "hello", "xin chao", "alo", "helo"]
-      const isGreeting = greetings.some((g) => clean === g || clean.startsWith(g + " "))
-      const isShipping = ["ship", "phi van chuyen", "giao hang", "freeship", "bao lau", "may ngay"].some((k) => clean.includes(k))
-      const isReturnPolicy = ["doi tra", "tra hang", "bao hanh", "rach", "hong", "loi"].some((k) => clean.includes(k))
-      const isStoreAddress = ["dia chi", "o dau", "cua hang", "chi nhanh", "den xem"].some((k) => clean.includes(k))
-      const isJustBrowsing = ["chi vao xem", "khong mua", "ko mua", "xem thoi", "dao choi", "xem choi", "ngam thoi", "luon lo", "tham quan"].some((k) => clean.includes(k))
-      const isPraise = ["dep the", "web dep", "xinh the", "giao dien dep", "xin xo", "dinh the"].some((k) => clean.includes(k))
-      const isFood = ["an com chua", "an com", "doi", "uong nuoc"].some((k) => clean.includes(k))
-      const isIdentity = ["ban la ai", "ai tao ra", "may tuoi", "la gi"].some((k) => clean.includes(k))
-
-
-
-
-
+      // Local Intelligent Fallback Rules (Edge Fallback NLU)
       let botMsg: Message
 
-      if (isAskingNonBook) {
+      // 1. Ý định hỏi về số lượng mua / đặt mua nhiều cuốn (Ưu tiên cao nhất)
+      const isQuantity = containsAny(clean, [
+        "mua 2", "mua 3", "mua 4", "mua 5", "mua nhieu",
+        "mua duoc khong", "mua duoc ko", "dat mua", "cach mua",
+        "mua may cuon", "so luong", "dat nhieu"
+      ])
+
+      // 2. Ý định hỏi xin tư vấn, gợi ý sách chung
+      const isAdvice = containsAny(clean, [
+        "tu van", "goi y", "nen mua", "mua sach gi", "sach nao hay",
+        "de xuat", "gioi thieu", "mua gi", "recommend", "co sach nao hay"
+      ])
+
+      // 3. Khách chỉ vào xem, không mua, dạo chơi
+      const isJustBrowsing = containsAny(clean, [
+        "chi vao xem", "khong mua", "ko mua", "xem thoi", "dao choi",
+        "xem choi", "ngam thoi", "luon lo", "tham quan", "ghe choi"
+      ])
+
+      // 4. Lời khen ngợi giao diện / web
+      const isPraise = containsAny(clean, [
+        "dep the", "web dep", "xinh the", "giao dien dep",
+        "xin xo", "dinh the", "de thuong", "thong minh the"
+      ])
+
+      // 5. Chuyện phiếm, ăn uống, chào hỏi
+      const isFood = containsAny(clean, [
+        "an com chua", "an com", "uong nuoc", "ngu chua", "chua ngu", "co nguoi yeu chua"
+      ])
+      const isGreeting = containsAny(clean, ["chao", "hi", "hello", "xin chao", "alo", "helo"]) && clean.split(" ").length <= 3
+      const isIdentity = containsAny(clean, ["ban la ai", "ai tao ra", "may tuoi", "la gi", "gioi thieu ban than"])
+
+      // 6. Chính sách cửa hàng (sử dụng cụm từ chính xác để tránh trùng từ)
+      const isShipping = containsAny(clean, [
+        "phi ship", "tien ship", "giao hang", "ship bao lau",
+        "may ngay den", "phi van chuyen", "freeship", "co freeship khong"
+      ])
+      const isReturnPolicy = containsAny(clean, [
+        "doi tra", "tra hang", "bao hanh", "bi rach", "bi hong",
+        "bi loi", "sach loi", "loi in", "loi in an", "sach rach"
+      ])
+      const isStoreAddress = containsAny(clean, [
+        "dia chi", "cua hang o dau", "dia chi o dau", "chi nhanh",
+        "den xem truc tiep", "tiem sach o dau"
+      ])
+      const isDiscount = containsAny(clean, [
+        "ma giam gia", "voucher", "khuyen mai", "uu dai",
+        "co giam gia khong", "code giam gia", "ma freeship"
+      ])
+
+      // 7. Hỏi sản phẩm không phải sách (dùng word boundary để không dính 'cho toi')
+      const isAskingNonBook = containsAny(clean, [
+        "o to", "xe hoi", "xe may", "xe dap", "dien thoai", "iphone",
+        "samsung", "laptop", "quan ao", "giay dep", "son moi", "my pham",
+        "tra sua", "banh mi", "nha dat", "bat dong san", "ve may bay", "dong ho", "ti vi"
+      ])
+
+      if (isQuantity) {
         botMsg = {
           from: "bot",
-          text: `Ôi bạn ơi, Mộc Books hiện chỉ bán những cuốn sách nuôi dưỡng tâm hồn và tri thức chứ chưa có bán "${raw}" đâu nè 😆!\n\nNếu bạn muốn có thêm tư duy, kiến thức kinh doanh hay làm giàu để sớm tậu được món đồ ưng ý, Mầm gợi ý bạn tham khảo cuốn “Tâm Lý Học Về Tiền” nhé!`,
-          bookId: 6,
-          model: "Llama-3-8B (Edge Fallback)",
-        }
-      } else if (isGreeting && clean.split(" ").length <= 3) {
-        botMsg = {
-          from: "bot",
-          text: "Mầm chào bạn nha! Hôm nay bạn muốn tìm tựa sách thư giãn, sách kỹ năng sống, hay đang tìm một cuốn sách thật hay để làm quà tặng?",
-          model: "Llama-3-8B (Edge Fallback)",
-        }
-      } else if (isShipping) {
-        botMsg = {
-          from: "bot",
-          text: "📦 Chính sách vận chuyển của Mộc Books:\n• Miễn phí giao hàng toàn quốc cho đơn từ 299.000đ.\n• Đơn dưới 299.000đ: Phí ship đồng giá 30.000đ.\n• Thời gian giao hàng: Từ 2–4 ngày làm việc tận tay bạn nhé!",
-          model: "Llama-3-8B (Edge Fallback)",
-        }
-      } else if (isReturnPolicy) {
-        botMsg = {
-          from: "bot",
-          text: "📖 Mộc Books cam kết:\n• Đổi trả miễn phí trong vòng 7 ngày nếu sách bị lỗi in ấn, rách hoặc móp méo do vận chuyển.\n• 100% sách chính hãng có bản quyền đầy đủ.",
+          text: "Dạ bạn mua bao nhiêu cuốn cũng được hết nha! 🥰\n\nBạn chỉ cần bấm nút \"+ Thêm vào giỏ\" cho từng cuốn bạn ưng ý, sau đó mở Giỏ hàng để bấm \"Đặt hàng ngay\" là xong ạ.\n• Đặc biệt: Đơn hàng từ 299.000đ sẽ được tự động MIỄN PHÍ SHIP toàn quốc đó bạn!",
           model: "Llama-3-8B (Edge Fallback)",
         }
       } else if (isJustBrowsing) {
@@ -144,7 +172,7 @@ export function Chatbot({
       } else if (isFood) {
         botMsg = {
           from: "bot",
-          text: "Dạ Mầm là trợ lý AI nên chỉ cần 'nạp' tri thức từ những cuốn sách là no rồi nè! 😆 Bạn nhớ đi ăn uống nghỉ ngơi cho ấm bụng nhé. Sau đó nếu muốn tìm sách thư giãn thì ghé Mầm nha!",
+          text: "Dạ Mầm là trợ lý AI nên chỉ cần 'nạp' tri thức từ những trang sách là tràn đầy năng lượng rồi nè! 😆 Bạn nhớ ăn uống và nghỉ ngơi cho ấm bụng nhé. Sau đó nếu muốn tìm sách thư giãn thì ghé Mầm nha!",
           model: "Llama-3-8B (Edge Fallback)",
         }
       } else if (isIdentity) {
@@ -153,26 +181,82 @@ export function Chatbot({
           text: "Mầm là trợ lý ảo tư vấn sách tại Mộc Books, vận hành bởi Cloudflare Workers AI (Llama-3-8B) trực tiếp tại máy chủ biên Edge. Mầm sinh ra để giúp bạn tìm thấy những cuốn sách ưng ý nhất! 🌱",
           model: "Llama-3-8B (Edge Fallback)",
         }
+      } else if (isGreeting) {
+        botMsg = {
+          from: "bot",
+          text: "Mầm chào bạn nha! Hôm nay bạn muốn tìm tựa sách thư giãn, sách kỹ năng sống, hay đang tìm một cuốn sách thật hay để làm quà tặng?",
+          model: "Llama-3-8B (Edge Fallback)",
+        }
+      } else if (isShipping) {
+        botMsg = {
+          from: "bot",
+          text: "📦 Chính sách vận chuyển của Mộc Books:\n• Miễn phí giao hàng toàn quốc cho đơn từ 299.000đ.\n• Đơn dưới 299.000đ: Phí ship đồng giá 30.000đ.\n• Thời gian giao hàng: Từ 2–4 ngày làm việc tận tay bạn nhé!",
+          model: "Llama-3-8B (Edge Fallback)",
+        }
+      } else if (isReturnPolicy) {
+        botMsg = {
+          from: "bot",
+          text: "📖 Mộc Books cam kết:\n• Đổi trả miễn phí trong vòng 7 ngày nếu sách bị lỗi in ấn, rách hoặc móp méo do vận chuyển.\n• 100% sách chính hãng có bản quyền đầy đủ.",
+          model: "Llama-3-8B (Edge Fallback)",
+        }
       } else if (isStoreAddress) {
         botMsg = {
           from: "bot",
           text: "📍 Bạn có thể ghé thăm hiệu sách tại: 98 Nguyễn Hữu Quỳnh, Hiệp Hòa, Bắc Ninh.\nHoặc đặt hàng trực tiếp ngay trên website để được ship tận nhà nhé!",
           model: "Llama-3-8B (Edge Fallback)",
         }
+      } else if (isDiscount) {
+        botMsg = {
+          from: "bot",
+          text: "🎉 Mầm tặng bạn ưu đãi độc quyền hôm nay:\n• Nhập mã MOC15: Giảm ngay 15% tổng hóa đơn\n• Đơn từ 299.000đ: Tự động MIỄN PHÍ VẬN CHUYỂN toàn quốc!\nBạn có muốn Mầm gợi ý thêm tựa sách nào đang bán chạy nhất không nè?",
+          model: "Llama-3-8B (Edge Fallback)",
+        }
+      } else if (isAskingNonBook) {
+        botMsg = {
+          from: "bot",
+          text: `Ôi bạn ơi, Mộc Books hiện chỉ bán những cuốn sách nuôi dưỡng tâm hồn và tri thức chứ chưa có bán "${raw}" đâu nè 😆!\n\nNếu bạn muốn có thêm tư duy, kiến thức kinh doanh hay làm giàu để sớm tậu được món đồ ưng ý, Mầm gợi ý bạn tham khảo cuốn “Tâm Lý Học Về Tiền” nhé!`,
+          bookId: 6,
+          model: "Llama-3-8B (Edge Fallback)",
+        }
+      } else if (isAdvice) {
+        botMsg = {
+          from: "bot",
+          text: "Dạ Mầm rất sẵn lòng tư vấn cho bạn nè! 🌱 Dưới đây là những cuốn sách được bạn đọc yêu thích nhất tại Mộc:\n\n• 🌿 Chữa lành & ấm áp: “Cây Cam Ngọt Của Tôi” (José Mauro)\n• 💰 Tư duy làm giàu & tài chính: “Tâm Lý Học Về Tiền” (Morgan Housel)\n• 🎯 Rèn luyện kỷ luật: “Thói Quen Nguyên Tử” (James Clear)\n\nBạn thích chủ đề nào để Mầm tư vấn chi tiết hơn nha? Mầm gợi ý ngay cuốn “Cây Cam Ngọt Của Tôi” bên dưới nhé!",
+          bookId: 2,
+          model: "Llama-3-8B (Edge Fallback)",
+        }
       } else {
-        const matched = products.find((p) => {
+        // RAG matching tìm kiếm sách trong catalog
+        const scored = products.map((p) => {
+          let score = 0
           const titleNoTone = removeVietnameseTones(p.title)
           const authorNoTone = removeVietnameseTones(p.author)
           const catNoTone = removeVietnameseTones(p.category)
           const descNoTone = removeVietnameseTones(p.text)
 
-          return (
-            titleNoTone.includes(clean) ||
-            authorNoTone.includes(clean) ||
-            catNoTone.includes(clean) ||
-            descNoTone.includes(clean)
-          )
+          if (clean.includes(titleNoTone)) score += 30
+          if (clean.includes(authorNoTone)) score += 20
+          if (clean.includes(catNoTone)) score += 15
+
+          const words = clean.split(/\s+/).filter((w) => w.length > 1)
+          for (const word of words) {
+            if (titleNoTone.includes(word)) score += 5
+            if (authorNoTone.includes(word)) score += 4
+            if (descNoTone.includes(word)) score += 2
+          }
+
+          if (containsAny(clean, ["chua lanh", "tam hon", "binh an", "stress", "met"]) && [2, 9, 20].includes(p.id)) score += 15
+          if (containsAny(clean, ["tien", "lam giau", "kinh te", "tai chinh", "dau tu"]) && [6, 7, 8].includes(p.id)) score += 15
+          if (containsAny(clean, ["tinh yeu", "crush", "nguoi yeu", "qua tang"]) && [1, 5, 19].includes(p.id)) score += 15
+          if (containsAny(clean, ["cong nghe", "lap trinh", "code", "ai", "it"]) && [17, 18].includes(p.id)) score += 15
+          if (containsAny(clean, ["thoi quen", "ky luat", "nang suat", "thay doi"]) && [11, 10].includes(p.id)) score += 15
+          if (containsAny(clean, ["nguoi moi", "de doc", "ngan"]) && [3, 4, 19].includes(p.id)) score += 15
+
+          return { product: p, score }
         })
+
+        scored.sort((a, b) => b.score - a.score)
+        const matched = scored[0]?.score > 3 ? scored[0].product : null
 
         if (matched) {
           botMsg = {
@@ -184,7 +268,8 @@ export function Chatbot({
         } else {
           botMsg = {
             from: "bot",
-            text: `Mầm chưa tìm thấy cuốn sách nào khớp với từ khóa "${raw}". Bạn thử tìm theo tên tác giả (như Nguyễn Nhật Ánh, Haruki Murakami...) hoặc thể loại như "Tâm linh", "Kinh tế", "Kỹ năng sống" xem sao nha!`,
+            text: `Mầm gợi ý bạn cuốn “Cây Cam Ngọt Của Tôi” – cuốn tiểu thuyết kinh điển lay động hàng triệu trái tim bạn đọc. Bạn có thể xem ngay chi tiết bên dưới nhé! 🌱`,
+            bookId: 2,
             model: "Llama-3-8B (Edge Fallback)",
           }
         }

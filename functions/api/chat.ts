@@ -277,7 +277,7 @@ export const BOOK_CATALOG: ProductInfo[] = [
     category: "Tâm lý học",
     rating: 4.8,
     description: "Khám phá hai hệ thống tư duy chi phối cách con người nhận định, phán đoán và ra quyết định trong cuộc sống.",
-    keywords: ["tu duy nhanh va cham", "daniel kahneman", "tam ly hoc", "quyết dinh", "nhan thuc"]
+    keywords: ["tu duy nhanh va cham", "daniel kahneman", "tam ly hoc", "quyet dinh", "nhan thuc"]
   },
   {
     id: 24,
@@ -313,6 +313,16 @@ function removeVietnameseTones(str: string): string {
     .trim();
 }
 
+function hasPhrase(text: string, phrase: string): boolean {
+  const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp(`(^|\\s|[.,!?;])${escaped}($|\\s|[.,!?;])`, "i");
+  return regex.test(text);
+}
+
+function containsAny(text: string, phrases: string[]): boolean {
+  return phrases.some((p) => hasPhrase(text, p));
+}
+
 function retrieveRelevantBooks(query: string): ProductInfo[] {
   const cleanQ = removeVietnameseTones(query);
   const scored = BOOK_CATALOG.map((book) => {
@@ -322,29 +332,37 @@ function retrieveRelevantBooks(query: string): ProductInfo[] {
     const cleanCategory = removeVietnameseTones(book.category);
     const cleanDesc = removeVietnameseTones(book.description);
 
-    if (cleanQ.includes(cleanTitle)) score += 15;
-    if (cleanQ.includes(cleanAuthor)) score += 10;
-    if (cleanQ.includes(cleanCategory)) score += 8;
+    if (cleanQ.includes(cleanTitle)) score += 25;
+    if (cleanQ.includes(cleanAuthor)) score += 18;
+    if (cleanQ.includes(cleanCategory)) score += 12;
 
     for (const kw of book.keywords) {
-      if (cleanQ.includes(kw)) score += 5;
+      if (cleanQ.includes(kw)) score += 6;
     }
 
     const words = cleanQ.split(/\s+/).filter((w) => w.length > 1);
     for (const word of words) {
-      if (cleanTitle.includes(word)) score += 3;
+      if (cleanTitle.includes(word)) score += 4;
       if (cleanDesc.includes(word)) score += 1;
     }
+
+    if (containsAny(cleanQ, ["chua lanh", "tam hon", "binh an", "stress", "met"]) && [2, 9, 20].includes(book.id)) score += 15;
+    if (containsAny(cleanQ, ["tien", "lam giau", "kinh te", "tai chinh", "dau tu"]) && [6, 7, 8].includes(book.id)) score += 15;
+    if (containsAny(cleanQ, ["tinh yeu", "crush", "nguoi yeu", "qua tang"]) && [1, 5, 19].includes(book.id)) score += 15;
+    if (containsAny(cleanQ, ["cong nghe", "lap trinh", "code", "ai", "it"]) && [17, 18].includes(book.id)) score += 15;
+    if (containsAny(cleanQ, ["thoi quen", "ky luat", "nang suat", "thay doi"]) && [11, 10].includes(book.id)) score += 15;
+    if (containsAny(cleanQ, ["nguoi moi", "de doc", "ngan"]) && [3, 4, 19].includes(book.id)) score += 15;
+
     return { book, score };
   });
 
   scored.sort((a, b) => b.score - a.score);
 
-  const topMatches = scored.filter((s) => s.score > 0).map((s) => s.book);
+  const topMatches = scored.filter((s) => s.score > 3).map((s) => s.book);
   if (topMatches.length > 0) {
     return topMatches.slice(0, 3);
   }
-  return [BOOK_CATALOG[1], BOOK_CATALOG[0], BOOK_CATALOG[5]];
+  return [BOOK_CATALOG[1], BOOK_CATALOG[5], BOOK_CATALOG[0]];
 }
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
@@ -369,11 +387,54 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     const clean = removeVietnameseTones(query);
 
-    // 1. Phản hồi các thông tin nghiệp vụ cửa hàng (nhanh & chính xác)
-    const isShipping = ["ship", "phi van chuyen", "giao hang", "freeship", "bao lau", "may ngay"].some((k) => clean.includes(k));
-    const isReturn = ["doi tra", "tra hang", "bao hanh", "rach", "hong", "loi"].some((k) => clean.includes(k));
-    const isAddress = ["dia chi", "o dau", "cua hang", "chi nhanh", "den xem"].some((k) => clean.includes(k));
-    const isDiscount = ["ma", "voucher", "giam gia", "sale", "khuyen mai", "uu dai"].some((k) => clean.includes(k));
+    // 1. Phản hồi các thông tin nghiệp vụ và intent quan trọng (NLU Fast-Path)
+    const isQuantity = containsAny(clean, [
+      "mua 2", "mua 3", "mua 4", "mua 5", "mua nhieu",
+      "mua duoc khong", "mua duoc ko", "dat mua", "cach mua",
+      "mua may cuon", "so luong", "dat nhieu"
+    ]);
+
+    const isShipping = containsAny(clean, [
+      "phi ship", "tien ship", "giao hang", "ship bao lau",
+      "may ngay den", "phi van chuyen", "freeship", "co freeship khong"
+    ]);
+
+    const isReturn = containsAny(clean, [
+      "doi tra", "tra hang", "bao hanh", "bi rach", "bi hong",
+      "bi loi", "sach loi", "loi in", "loi in an", "sach rach"
+    ]);
+
+    const isAddress = containsAny(clean, [
+      "dia chi", "cua hang o dau", "dia chi o dau", "chi nhanh",
+      "den xem truc tiep", "tiem sach o dau"
+    ]);
+
+    const isDiscount = containsAny(clean, [
+      "ma giam gia", "voucher", "khuyen mai", "uu dai",
+      "co giam gia khong", "code giam gia", "ma freeship"
+    ]);
+
+    const isAskingNonBook = containsAny(clean, [
+      "o to", "xe hoi", "xe may", "xe dap", "dien thoai", "iphone",
+      "samsung", "laptop", "quan ao", "giay dep", "son moi", "my pham",
+      "tra sua", "banh mi", "nha dat", "bat dong san", "ve may bay", "dong ho", "ti vi"
+    ]);
+
+    const isAdvice = containsAny(clean, [
+      "tu van", "goi y", "nen mua", "mua sach gi", "sach nao hay",
+      "de xuat", "gioi thieu", "mua gi", "recommend", "co sach nao hay"
+    ]);
+
+    if (isQuantity) {
+      return new Response(
+        JSON.stringify({
+          response: "Dạ bạn mua bao nhiêu cuốn cũng được hết nha! 🥰\n\nBạn chỉ cần bấm nút \"+ Thêm vào giỏ\" cho từng cuốn bạn ưng ý, sau đó mở Giỏ hàng để bấm \"Đặt hàng ngay\" là xong ạ.\n• Đặc biệt: Đơn hàng từ 299.000đ sẽ được tự động MIỄN PHÍ SHIP toàn quốc đó bạn!",
+          model: "Llama-3-8B (Edge Fast-Path)",
+          edgeLocation: "Cloudflare Edge",
+        }),
+        { status: 200, headers }
+      );
+    }
 
     if (isShipping) {
       return new Response(
@@ -419,6 +480,18 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
+    if (isAskingNonBook) {
+      return new Response(
+        JSON.stringify({
+          response: `Ôi bạn ơi, Mộc Books hiện chỉ bán những cuốn sách nuôi dưỡng tâm hồn và tri thức chứ chưa có bán "${query}" đâu nè 😆!\n\nNếu bạn muốn có thêm tư duy, kiến thức kinh doanh hay làm giàu để sớm tậu được món đồ ưng ý, Mầm gợi ý bạn tham khảo cuốn “Tâm Lý Học Về Tiền” nhé!`,
+          bookId: 6,
+          model: "Llama-3-8B (Edge Fast-Path)",
+          edgeLocation: "Cloudflare Edge",
+        }),
+        { status: 200, headers }
+      );
+    }
+
     // 2. RAG Retrieval Phase: Truy xuất sách phù hợp từ kho tri thức
     const retrievedBooks = retrieveRelevantBooks(query);
     const retrievedContext = retrievedBooks
@@ -440,15 +513,17 @@ CHÍNH SÁCH ƯU ĐÃI:
 - Đóng gói vintage nơ thừng và thiệp quà tặng miễn phí.
 
 HƯỚNG DẪN XỬ LÝ NGÔN NGỮ TỰ NHIÊN (NATURAL LANGUAGE UNDERSTANDING):
-1. Câu hỏi vu vơ / Khách nói chỉ vào xem, không mua (ví dụ: 'tôi chỉ vào xem web thôi ko mua đâu'):
-   - Hãy vui vẻ, niềm nở, chào đón khách thong thả dạo chơi ngắm sách, tuyệt đối không ép mua hàng. Ví dụ: "Dạ không sao hết nè bạn ơi! Bạn cứ thong thả dạo chơi ngắm sách nhé, Mộc Books luôn là góc nhỏ bình yên đón bạn ghé thăm lúc rảnh rỗi. Khi nào cần tìm cuốn gì hay cứ ới Mầm nha!"
-2. Lời khen giao diện, web đẹp hoặc khen Mầm dễ thương:
+1. Khách xin tư vấn sách nói chung hoặc hỏi nên mua sách gì:
+   - Hãy nhiệt tình gợi ý 2-3 cuốn tiêu biểu từ kho sách (ví dụ: Cây Cam Ngọt Của Tôi, Tâm Lý Học Về Tiền, Thói Quen Nguyên Tử) và hỏi sở thích của khách để tư vấn sâu hơn.
+2. Khách hỏi vu vơ / chỉ vào xem, không mua:
+   - Hãy vui vẻ, niềm nở chào đón khách thong thả dạo chơi ngắm sách, tuyệt đối không ép mua hàng.
+3. Khách khen giao diện đẹp hoặc khen Mầm dễ thương:
    - Cảm ơn ấm áp, dễ thương.
-3. Hỏi chuyện phiếm, trêu đùa (ăn cơm chưa, người yêu, thời tiết...):
+4. Hỏi chuyện phiếm, trêu đùa (ăn cơm chưa, người yêu, thời tiết...):
    - Đáp lại dí dỏm, đáng yêu như một người bạn.
-4. Hỏi về các cuốn sách trong database:
+5. Hỏi về các cuốn sách trong database:
    - Dựa vào [RAG KNOWLEDGE CONTEXT] để trả lời chính xác tựa sách, tác giả, giá bán, bài học ý nghĩa.
-5. Khi bạn có gợi ý một cuốn sách cụ thể, hãy thêm thẻ [RECOMMEND: id_sách] ở cuối tin nhắn (ví dụ: [RECOMMEND: ${retrievedBooks[0].id}]). Nếu chỉ tán gẫu vu vơ thì KHÔNG cần gắn thẻ này.`;
+6. Khi gợi ý một cuốn sách cụ thể, hãy thêm thẻ [RECOMMEND: id_sách] ở cuối tin nhắn (ví dụ: [RECOMMEND: ${retrievedBooks[0].id}]).`;
 
     let generatedText = "";
     let modelUsed = "@cf/meta/llama-3-8b-instruct";
@@ -483,37 +558,27 @@ HƯỚNG DẪN XỬ LÝ NGÔN NGỮ TỰ NHIÊN (NATURAL LANGUAGE UNDERSTANDING)
       }
     }
 
-    // 4. Fallback Generator thông minh nếu chưa bật AI binding
+    // 4. Fallback Generator thông minh nếu chưa có AI binding
     if (!generatedText) {
       const primaryBook = retrievedBooks[0];
 
-      // Nhận diện câu nói vu vơ: vào xem không mua, ngắm sách
-      if (["chi vao xem", "khong mua", "ko mua", "xem thoi", "dao choi", "xem choi", "ngam thoi", "luon lo", "tham quan"].some((k) => clean.includes(k))) {
+      if (containsAny(clean, ["chi vao xem", "khong mua", "ko mua", "xem thoi", "dao choi", "xem choi", "ngam thoi", "luon lo", "tham quan"])) {
         generatedText = "Dạ không sao hết nè bạn ơi! 😊 Bạn cứ thong thả dạo chơi, lật mở từng trang sách nhé. Mộc Books luôn mở rộng cửa đón bạn ghé thăm lúc rảnh rỗi. Khi nào cần tìm một cuốn sách hay để bầu bạn thì cứ nhắn cho Mầm nha!";
         recommendedBookId = undefined;
-      } else if (["dep the", "web dep", "xinh the", "giao dien dep", "xin xo", "dinh the"].some((k) => clean.includes(k))) {
+      } else if (containsAny(clean, ["dep the", "web dep", "xinh the", "giao dien dep", "xin xo", "dinh the"])) {
         generatedText = "Mầm cảm ơn bạn nhiều nha! 🌱 Đội ngũ Mộc Books đã chăm chút từng góc nhỏ để mang lại cảm giác mộc mạc, bình yên như một tiệm sách gỗ thật sự đó ạ. Chúc bạn có những phút giây thư thái tại Mộc!";
         recommendedBookId = undefined;
-      } else if (["an com chua", "an com", "doi", "uong nuoc"].some((k) => clean.includes(k))) {
-        generatedText = "Dạ Mầm là trợ lý AI nên chỉ cần 'nạp' tri thức từ những cuốn sách là no rồi nè! 😆 Bạn nhớ đi ăn uống nghỉ ngơi cho ấm bụng nhé. Sau đó nếu muốn thư giãn, ghé Mầm gợi ý một cuốn sách hay nha!";
+      } else if (containsAny(clean, ["an com chua", "an com", "uong nuoc"])) {
+        generatedText = "Dạ Mầm là trợ lý AI nên chỉ cần 'nạp' tri thức từ những cuốn sách là tràn đầy năng lượng rồi nè! 😆 Bạn nhớ đi ăn uống nghỉ ngơi cho ấm bụng nhé. Sau đó nếu muốn thư giãn, ghé Mầm gợi ý một cuốn sách hay nha!";
         recommendedBookId = undefined;
-      } else if (["ban la ai", "ai tao ra", "may tuoi", "la gi"].some((k) => clean.includes(k))) {
+      } else if (containsAny(clean, ["ban la ai", "ai tao ra", "may tuoi", "la gi"])) {
         generatedText = "Mầm là trợ lý ảo tư vấn sách tại Mộc Books, vận hành bởi Cloudflare Workers AI (Llama-3-8B) trực tiếp tại máy chủ biên Edge. Mầm sinh ra để đồng hành và giúp bạn tìm thấy những cuốn sách ưng ý nhất! 🌱";
         recommendedBookId = undefined;
-      } else if (["chua lanh", "buon", "stress", "met", "ap luc", "binh an"].some((k) => clean.includes(k))) {
-        generatedText = `Mầm hiểu những lúc tâm trạng cần một chốn bình yên 🌱. Mầm gợi ý bạn cuốn “${BOOK_CATALOG[8].title}” (Thích Nhất Hạnh) hoặc “${BOOK_CATALOG[19].title}” (Thầy Minh Niệm). Từng trang sách như một tách trà ấm xoa dịu đi những âu lo thường nhật của bạn.\n[RECOMMEND: ${BOOK_CATALOG[8].id}]`;
-        recommendedBookId = BOOK_CATALOG[8].id;
-      } else if (["tien", "giau", "kinh te", "tai chinh", "dau tu", "kinh doanh"].some((k) => clean.includes(k))) {
-        generatedText = `Đầu tư cho tư duy tài chính luôn là khoản sinh lời bền vững nhất! Mầm xin gợi ý ngay cuốn “${BOOK_CATALOG[5].title}” của tác giả ${BOOK_CATALOG[5].author} – tác phẩm phân tích tâm lý tiền bạc sâu sắc, hiện đang có ưu đãi 32% tại Mộc.\n[RECOMMEND: ${BOOK_CATALOG[5].id}]`;
-        recommendedBookId = BOOK_CATALOG[5].id;
-      } else if (["tinh", "yeu", "crush", "qua", "tang", "ban gai"].some((k) => clean.includes(k))) {
-        generatedText = `Một cuốn sách chứa đầy sự tinh tế chính là món quà ý nghĩa nhất! Mầm gợi ý cuốn “${BOOK_CATALOG[0].title}” của ${BOOK_CATALOG[0].author}. Mộc sẽ hỗ trợ bạn gói quà vintage nơ thừng và tặng kèm thiệp xinh xắn hoàn toàn miễn phí nhé!\n[RECOMMEND: ${BOOK_CATALOG[0].id}]`;
-        recommendedBookId = BOOK_CATALOG[0].id;
-      } else if (["cong nghe", "it", "code", "lap trinh", "ai"].some((k) => clean.includes(k))) {
-        generatedText = `Nếu bạn yêu thích công nghệ và lập trình, Mầm xin gợi ý cuốn “${BOOK_CATALOG[17].title}” của Robert C. Martin hoặc “${BOOK_CATALOG[16].title}” của Kai-Fu Lee – những tác phẩm đỉnh cao cho người làm kỹ thuật!\n[RECOMMEND: ${BOOK_CATALOG[17].id}]`;
-        recommendedBookId = BOOK_CATALOG[17].id;
+      } else if (isAdvice) {
+        generatedText = `Dạ Mầm rất sẵn lòng tư vấn cho bạn nè! 🌱 Dưới đây là những tựa sách nổi bật nhất tại Mộc Books:\n• 🌿 Chữa lành & ấm áp: “Cây Cam Ngọt Của Tôi”\n• 💰 Tư duy làm giàu: “Tâm Lý Học Về Tiền”\n• 🎯 Rèn luyện bản thân: “Thói Quen Nguyên Tử”\nBạn đang quan tâm thể loại nào nhất để Mầm chia sẻ kỹ hơn nha?\n[RECOMMEND: ${BOOK_CATALOG[1].id}]`;
+        recommendedBookId = BOOK_CATALOG[1].id;
       } else {
-        generatedText = `Dạ Mầm rất vui được hỗ trợ bạn! Mầm xin gợi ý cuốn sách rất được bạn đọc yêu thích: “${primaryBook.title}” của tác giả ${primaryBook.author} (${primaryBook.rating}/5 ⭐). Cuốn sách này ${primaryBook.description.toLowerCase()}\n[RECOMMEND: ${primaryBook.id}]`;
+        generatedText = `Dạ Mầm gợi ý ngay cho bạn cuốn “${primaryBook.title}” của tác giả ${primaryBook.author} (${primaryBook.rating}/5 ⭐) rất được bạn đọc yêu thích! Cuốn sách này ${primaryBook.description.toLowerCase()}\n[RECOMMEND: ${primaryBook.id}]`;
         recommendedBookId = primaryBook.id;
       }
     }

@@ -416,6 +416,26 @@ function figmaMakeKitPlugin(options: {
 
 
 function cloudflareWorkersAiDevPlugin(): Plugin {
+  function removeVietnameseTones(str: string): string {
+    return str
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/đ/g, "d")
+      .replace(/Đ/g, "D")
+      .toLowerCase()
+      .trim()
+  }
+
+  function hasPhrase(text: string, phrase: string): boolean {
+    const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    const regex = new RegExp(`(^|\\s|[.,!?;])${escaped}($|\\s|[.,!?;])`, "i")
+    return regex.test(text)
+  }
+
+  function containsAny(text: string, phrases: string[]): boolean {
+    return phrases.some((p) => hasPhrase(text, p))
+  }
+
   return {
     name: "cloudflare-workers-ai-dev",
     configureServer(server) {
@@ -428,32 +448,42 @@ function cloudflareWorkersAiDevPlugin(): Plugin {
           req.on("end", () => {
             try {
               const data = JSON.parse(body || "{}")
-              const message = (data.message || "").toLowerCase()
+              const raw = (data.message || "").trim()
+              const clean = removeVietnameseTones(raw)
               let response = ""
               let bookId: number | undefined
 
-              if (["chi vao xem", "chỉ vào xem", "khong mua", "không mua", "ko mua", "xem thoi", "xem thôi", "dao choi", "dạo chơi", "xem choi", "xem chơi", "ngam thoi", "ngắm thôi", "luon lo", "lượn lờ"].some((k) => message.includes(k))) {
-                response = "Dạ không sao hết nè bạn ơi! 😊 Bạn cứ thong thả dạo chơi, ngắm nghía từng cuốn sách nhé. Mộc Books luôn mở rộng cửa đón bạn ghé thăm thư giãn lúc rảnh rỗi. Khi nào cần tìm cuốn gì hay cứ ới Mầm nha!"
-                bookId = undefined
-              } else if (["dep the", "đẹp thế", "web dep", "web đẹp", "giao dien dep", "giao diện đẹp", "xin xo", "xịn xò"].some((k) => message.includes(k))) {
-                response = "Mầm cảm ơn bạn nhiều nha! 🌱 Đội ngũ Mộc Books đã chăm chút từng góc nhỏ để mang lại cảm giác mộc mạc, bình yên như một tiệm sách gỗ thật sự đó ạ. Chúc bạn có những phút giây thư thái!"
-                bookId = undefined
-              } else if (["chữa lành", "buồn", "stress", "mệt", "áp lực", "bình an"].some((k) => message.includes(k))) {
-                response = "Mầm hiểu những lúc tâm trạng cần một chốn bình yên 🌱. Mầm gợi ý bạn cuốn “Không Diệt Không Sinh Đừng Sợ Hãi” (Thích Nhất Hạnh) hoặc “Cây Cam Ngọt Của Tôi”. Từng trang sách như một tách trà ấm xoa dịu đi những âu lo thường nhật của bạn."
+              if (containsAny(clean, ["mua 2", "mua 3", "mua 4", "mua 5", "mua nhieu", "mua duoc khong", "mua duoc ko", "dat mua", "cach mua", "mua may cuon", "so luong"])) {
+                response = "Dạ bạn mua bao nhiêu cuốn cũng được hết nha! 🥰\n\nBạn chỉ cần bấm nút \"+ Thêm vào giỏ\" cho từng cuốn bạn ưng ý, sau đó mở Giỏ hàng để bấm \"Đặt hàng ngay\" là xong ạ.\n• Đặc biệt: Đơn hàng từ 299.000đ sẽ được tự động MIỄN PHÍ SHIP toàn quốc đó bạn!"
+              } else if (containsAny(clean, ["chi vao xem", "khong mua", "ko mua", "xem thoi", "dao choi", "xem choi", "ngam thoi", "luon lo", "tham quan"])) {
+                response = "Dạ không sao hết nè bạn ơi! 😊 Bạn cứ thong thả dạo chơi, ngắm nghía từng cuốn sách nhé. Mộc Books luôn mở rộng cửa đón bạn ghé thăm thư giãn lúc rảnh rỗi. Khi nào cần tìm cuốn gì hay cứ ới Mầm nha!"
+              } else if (containsAny(clean, ["dep the", "web dep", "xinh the", "giao dien dep", "xin xo", "dinh the"])) {
+                response = "Mầm cảm ơn bạn nhiều nha! 🌱 Đội ngũ Mộc Books đã chăm chút từng góc nhỏ để mang lại cảm giác mộc mạc, bình yên như một tiệm sách gỗ thật sự đó ạ. Chúc bạn có những phút giây thư thái!"
+              } else if (containsAny(clean, ["phi ship", "tien ship", "giao hang", "ship bao lau", "may ngay den", "phi van chuyen", "freeship"])) {
+                response = "📦 Chính sách vận chuyển của Mộc Books:\n• Miễn phí giao hàng toàn quốc cho đơn từ 299.000đ.\n• Đơn dưới 299.000đ: Phí ship đồng giá 30.000đ.\n• Thời gian giao hàng: Từ 2–4 ngày làm việc tận tay bạn nhé!"
+              } else if (containsAny(clean, ["doi tra", "tra hang", "bao hanh", "bi rach", "bi hong", "bi loi", "sach loi", "loi in"])) {
+                response = "📖 Mộc Books cam kết:\n• Đổi trả miễn phí trong vòng 7 ngày nếu sách bị lỗi in ấn, rách hoặc móp méo do vận chuyển.\n• 100% sách chính hãng có bản quyền đầy đủ."
+              } else if (containsAny(clean, ["dia chi", "cua hang o dau", "dia chi o dau", "chi nhanh"])) {
+                response = "📍 Bạn có thể ghé thăm hiệu sách tại: 98 Nguyễn Hữu Quỳnh, Hiệp Hòa, Bắc Ninh.\nHoặc đặt hàng trực tiếp ngay trên website để được ship tận nhà nhé!"
+              } else if (containsAny(clean, ["ma giam gia", "voucher", "khuyen mai", "uu dai", "co giam gia khong"])) {
+                response = "🎉 Mầm tặng bạn ưu đãi hôm nay:\n• Nhập mã MOC15: Giảm ngay 15% tổng hóa đơn\n• Đơn từ 299.000đ: Miễn phí vận chuyển toàn quốc!\nBạn có muốn Mầm gợi ý thêm tựa sách hay nào không nè?"
+              } else if (containsAny(clean, ["o to", "xe hoi", "xe may", "xe dap", "dien thoai", "iphone", "samsung", "laptop", "quan ao", "giay dep", "son moi", "my pham", "tra sua", "banh mi"])) {
+                response = `Ôi bạn ơi, Mộc Books hiện chỉ bán những cuốn sách nuôi dưỡng tâm hồn và tri thức chứ chưa có bán "${raw}" đâu nè 😆!\n\nNếu bạn muốn có thêm tư duy, kiến thức kinh doanh hay làm giàu để sớm tậu được món đồ ưng ý, Mầm gợi ý bạn tham khảo cuốn “Tâm Lý Học Về Tiền” nhé!`
                 bookId = 6
-              } else if (["tiền", "giàu", "kinh tế", "tài chính", "đầu tư", "kinh doanh"].some((k) => message.includes(k))) {
+              } else if (containsAny(clean, ["tu van", "goi y", "nen mua", "mua sach gi", "sach nao hay", "de xuat", "gioi thieu", "mua gi", "recommend"])) {
+                response = "Dạ Mầm rất sẵn lòng tư vấn cho bạn nè! 🌱 Dưới đây là những cuốn sách được bạn đọc yêu thích nhất tại Mộc:\n\n• 🌿 Chữa lành & ấm áp: “Cây Cam Ngọt Của Tôi” (José Mauro)\n• 💰 Tư duy làm giàu: “Tâm Lý Học Về Tiền” (Morgan Housel)\n• 🎯 Rèn luyện kỷ luật: “Thói Quen Nguyên Tử” (James Clear)\n\nBạn thích chủ đề nào để Mầm tư vấn chi tiết hơn nha? Mầm gợi ý ngay cuốn “Cây Cam Ngọt Của Tôi” bên dưới nhé!"
+                bookId = 2
+              } else if (containsAny(clean, ["chua lanh", "buon", "stress", "met", "ap luc", "binh an"])) {
+                response = "Mầm hiểu những lúc tâm trạng cần một chốn bình yên 🌱. Mầm gợi ý bạn cuốn “Không Diệt Không Sinh Đừng Sợ Hãi” (Thích Nhất Hạnh) hoặc “Cây Cam Ngọt Của Tôi”. Từng trang sách như một tách trà ấm xoa dịu đi những âu lo thường nhật của bạn."
+                bookId = 9
+              } else if (containsAny(clean, ["tien", "giau", "kinh te", "tai chinh", "dau tu", "kinh doanh"])) {
                 response = "Đầu tư cho tư duy tài chính luôn là khoản sinh lời bền vững nhất! Mầm xin gợi ý ngay cuốn “Tâm Lý Học Về Tiền” của tác giả Morgan Housel – phân tích tâm lý tài chính sâu sắc, đang có ưu đãi 32% tại Mộc."
-                bookId = 3
-              } else if (["tình", "yêu", "crush", "quà", "tặng", "bạn gái"].some((k) => message.includes(k))) {
+                bookId = 6
+              } else if (containsAny(clean, ["tinh yeu", "crush", "nguoi yeu", "qua tang", "ban gai"])) {
                 response = "Một cuốn sách chứa đầy kỷ niệm và sự tinh tế chính là món quà tuyệt vời nhất! Mầm gợi ý cuốn “Ngày Xưa Có Một Chuyện Tình” của Nguyễn Nhật Ánh. Mộc hỗ trợ bạn gói quà vintage nơ thừng và tặng thiệp miễn phí nhé!"
                 bookId = 1
-              } else if (["mã", "voucher", "giảm giá", "sale", "khuyến mãi", "freeship"].some((k) => message.includes(k))) {
-                response = "🎉 Mầm tặng bạn ưu đãi hôm nay:\n• Nhập mã MOC15: Giảm ngay 15% tổng hóa đơn\n• Đơn từ 299.000đ: Miễn phí vận chuyển toàn quốc!\nBạn có muốn Mầm gợi ý thêm tựa sách hay nào không nè?"
-              } else if (["mới", "ngắn", "dễ đọc", "lười"].some((k) => message.includes(k))) {
-                response = "Dành cho người mới bắt đầu đọc, không gì tuyệt vời hơn “Nhà Giả Kim” – chỉ hơn 200 trang, dễ đọc, cực kỳ lôi cuốn và truyền cảm hứng theo đuổi ước mơ mãnh liệt!"
-                bookId = 4
-              } else if (["ăn", "cơm", "đói", "uống"].some((k) => message.includes(k))) {
-                response = "Dạ Mầm xin chào bạn! Mầm là trợ lý tư vấn sách tại Mộc Books thôi nè 😊 Bạn nhớ nạp năng lượng ăn uống nghỉ ngơi trước nhé! Sau đó, nếu cần một cuốn sách hay để thư giãn, Mầm gợi ý ngay cuốn “Cây Cam Ngọt Của Tôi” nha!"
+              } else if (containsAny(clean, ["an com chua", "an com", "uong nuoc"])) {
+                response = "Dạ Mầm xin chào bạn! Mầm là trợ lý AI chỉ cần 'nạp' tri thức từ sách là tràn đầy năng lượng rồi nè 😊 Bạn nhớ nạp năng lượng ăn uống nghỉ ngơi trước nhé! Sau đó, nếu cần một cuốn sách hay để thư giãn, ghé Mầm nha!"
                 bookId = 2
               } else {
                 response = "Dạ Mầm rất vui được hỗ trợ bạn! Dựa trên câu hỏi, Mầm gợi ý cuốn sách kinh điển “Cây Cam Ngọt Của Tôi” – tác phẩm sưởi ấm hàng triệu trái tim độc giả Mộc Books."
