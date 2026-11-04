@@ -3,6 +3,7 @@ import React, { FormEvent, useEffect, useMemo, useState } from "react"
 import { User, Order } from "./types"
 import { AuthModal } from "./AuthModal"
 import { Catalog } from "./Catalog"
+import { PolicyModal, PolicyTab } from './PolicyModal';
 import { products, categories } from "./data"
 import { OrderHistory } from "./OrderHistory"
 import { Chatbot } from "./Chatbot"
@@ -1482,7 +1483,13 @@ function Checkout({
 }
 
 // 11. CHÂN TRANG (Footer)
-function Footer({ onCatalog }: { onCatalog: () => void }) {
+function Footer({
+  onCatalog,
+  onOpenPolicy,
+}: {
+  onCatalog: () => void
+  onOpenPolicy: (tab: PolicyTab) => void
+}) {
   return (
     <footer>
       <div className="footer-main">
@@ -1500,9 +1507,15 @@ function Footer({ onCatalog }: { onCatalog: () => void }) {
         </div>
         <div>
           <h4>Hỗ trợ</h4>
-          <button>Hướng dẫn mua hàng</button>
-          <button>Chính sách đổi trả</button>
-          <button>Liên hệ</button>
+          <button type="button" onClick={() => onOpenPolicy("guide")}>
+            Hướng dẫn mua hàng
+          </button>
+          <button type="button" onClick={() => onOpenPolicy("returns")}>
+            Chính sách đổi trả
+          </button>
+          <button type="button" onClick={() => onOpenPolicy("contact")}>
+            Liên hệ
+          </button>
         </div>
         <div>
           <h4>Ghé thăm Mộc</h4>
@@ -1532,6 +1545,55 @@ export default function App() {
     "home"
   )
 
+  // State mở Modal Chính sách & Hỗ trợ
+  const [policyOpen, setPolicyOpen] = useState(false)
+  const [policyTab, setPolicyTab] = useState<PolicyTab>("guide")
+
+  function handleOpenPolicy(tab: PolicyTab) {
+    setPolicyTab(tab)
+    setPolicyOpen(true)
+  }
+
+      <Footer 
+        onCatalog={() => go("catalog")} 
+        onOpenPolicy={handleOpenPolicy} 
+      />
+
+      {/* Đặt component PolicyModal cạnh AuthModal */}
+      <PolicyModal
+        isOpen={policyOpen}
+        defaultTab={policyTab}
+        onClose={() => setPolicyOpen(false)}
+      />
+
+      {cartOpen && (
+        <CartDrawer
+          cart={cart}
+          onClose={() => setCartOpen(false)}
+          onQuantity={quantity}
+          onRemove={removeItem}
+          onCheckout={handleGoCheckout}
+        />
+      )}
+
+      {authOpen && (
+        <AuthModal
+          onClose={() => setAuthOpen(false)}
+          onLoginSuccess={(user) => {
+            setCurrentUser(user)
+            setAuthOpen(false)
+          }}
+        />
+      )}
+
+      <Chatbot
+        onAdd={add}
+        onCheckout={() => {
+          setCartOpen(false)
+          go("checkout")
+        }}
+      />
+}
   // Đọc giỏ hàng từ localStorage
   const [cart, setCart] = useState<Record<number, number>>(() => {
     try {
