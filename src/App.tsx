@@ -1545,7 +1545,7 @@ export default function App() {
     "home"
   )
 
-  // State mở Modal Chính sách & Hỗ trợ
+  // Quản lý Modal Chính sách & Hỗ trợ
   const [policyOpen, setPolicyOpen] = useState(false)
   const [policyTab, setPolicyTab] = useState<PolicyTab>("guide")
 
@@ -1554,46 +1554,6 @@ export default function App() {
     setPolicyOpen(true)
   }
 
-      <Footer 
-        onCatalog={() => go("catalog")} 
-        onOpenPolicy={handleOpenPolicy} 
-      />
-
-      {/* Đặt component PolicyModal cạnh AuthModal */}
-      <PolicyModal
-        isOpen={policyOpen}
-        defaultTab={policyTab}
-        onClose={() => setPolicyOpen(false)}
-      />
-
-      {cartOpen && (
-        <CartDrawer
-          cart={cart}
-          onClose={() => setCartOpen(false)}
-          onQuantity={quantity}
-          onRemove={removeItem}
-          onCheckout={handleGoCheckout}
-        />
-      )}
-
-      {authOpen && (
-        <AuthModal
-          onClose={() => setAuthOpen(false)}
-          onLoginSuccess={(user) => {
-            setCurrentUser(user)
-            setAuthOpen(false)
-          }}
-        />
-      )}
-
-      <Chatbot
-        onAdd={add}
-        onCheckout={() => {
-          setCartOpen(false)
-          go("checkout")
-        }}
-      />
-}
   // Đọc giỏ hàng từ localStorage
   const [cart, setCart] = useState<Record<number, number>>(() => {
     try {
@@ -1651,14 +1611,13 @@ export default function App() {
     localStorage.removeItem("moc_current_user")
     setCurrentUser(null)
   }
-  // 1. Hàm kiểm tra điều hướng sang Checkout an toàn
+
+  // Hàm kiểm tra điều hướng sang Checkout
   function handleGoCheckout() {
     if (!currentUser) {
-      // Chưa đăng nhập -> Mở khung đăng nhập
       setAuthOpen(true)
       return
     }
-    // Đã đăng nhập -> Chuyển trang thanh toán
     setCartOpen(false)
     go("checkout")
   }
@@ -1675,7 +1634,7 @@ export default function App() {
     setCartOpen(true)
   }
 
-function buyNow(id: number) {
+  function buyNow(id: number) {
     setCart((c) => ({ ...c, [id]: (c[id] || 0) + 1 }))
     setCartOpen(false)
     if (!currentUser) {
@@ -1771,8 +1730,8 @@ function buyNow(id: number) {
       {view === "checkout" && (
         <Checkout
           cart={cart}
-          currentUser={currentUser} // 👈 Truyền user hiện tại
-          onOpenAuth={() => setAuthOpen(true)} // 👈 Mở popup Auth
+          currentUser={currentUser}
+          onOpenAuth={() => setAuthOpen(true)}
           onHome={() => go("home")}
           onSaveOrder={handleSaveOrder}
           onSuccess={() => {
@@ -1782,7 +1741,18 @@ function buyNow(id: number) {
         />
       )}
 
-      <Footer onCatalog={() => go("catalog")} />
+      {/* Footer nhận sự kiện mở Modal chính sách */}
+      <Footer
+        onCatalog={() => go("catalog")}
+        onOpenPolicy={handleOpenPolicy}
+      />
+
+      {/* Modal hiển thị Hướng dẫn / Đổi trả / Liên hệ */}
+      <PolicyModal
+        isOpen={policyOpen}
+        defaultTab={policyTab}
+        onClose={() => setPolicyOpen(false)}
+      />
 
       {cartOpen && (
         <CartDrawer
