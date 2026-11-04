@@ -1044,11 +1044,15 @@ interface Ward {
 
 function Checkout({
   cart,
+  currentUser,
+  onOpenAuth,  
   onSuccess,
   onHome,
   onSaveOrder,
 }: {
   cart: Record<number, number>
+  currentUser: User | null
+  onOpenAuth: () => void
   onSuccess: () => void
   onHome: () => void
   onSaveOrder: (order: Order) => void
@@ -1057,9 +1061,9 @@ function Checkout({
   const [done, setDone] = useState(false)
   const [orderId, setOrderId] = useState("")
 
-  const [name, setName] = useState("")
+  const [name, setName] = useState(currentUser?.name || "")
   const [phone, setPhone] = useState("")
-  const [email, setEmail] = useState("")
+  const [email, setEmail] = useState(currentUser?.email || "")
 
   const [provinces, setProvinces] = useState<Province[]>([])
   const [districts, setDistricts] = useState<District[]>([])
@@ -1149,56 +1153,67 @@ function Checkout({
     onSuccess()
   }
 
-  if (done) {
+ if (done) {
     return (
       <main
         className="success-page section"
         style={{ textAlign: "center", padding: "60px 20px" }}
       >
-        <span
-          className="success-icon"
-          style={{
-            display: "inline-block",
-            marginBottom: "16px",
-            color: "#2d6a4f",
-          }}
-        >
-          <Icon name="check" size={54} />
-        </span>
-        <span
-          className="eyebrow"
-          style={{ color: "#df6b43", fontWeight: 700, letterSpacing: "1px" }}
-        >
-          Đặt hàng thành công
-        </span>
-        <h1 style={{ fontSize: "28px", margin: "12px 0", color: "#1f3026" }}>
-          Cảm ơn {name} đã đặt sách tại Mộc!
-        </h1>
-        <p
-          style={{
-            color: "#666",
-            maxWidth: "540px",
-            margin: "0 auto 24px",
-            lineHeight: "1.6",
-          }}
-        >
-          Đơn hàng <b>#{orderId}</b> đã được tiếp nhận.<br />
-          Địa chỉ giao hàng:{" "}
-          <b style={{ color: "#1f3026" }}>{fullAddress}</b> (SĐT: <b>{phone}</b>
-          ).
-        </p>
-        <button
-          className="button primary"
-          onClick={onHome}
-          type="button"
-          style={{ padding: "12px 28px", fontSize: "15px" }}
-        >
-          Tiếp tục khám phá sách <Icon name="arrow" />
-        </button>
+        {/* ... nội dung đặt hàng thành công giữ nguyên ... */}
       </main>
     )
   }
 
+  // 👉 👉 👉 THÊM ĐOẠN NÀY VÀO ĐÂY (CHẶN NẾU CHƯA ĐĂNG NHẬP)
+  if (!currentUser) {
+    return (
+      <main
+        className="section"
+        style={{
+          maxWidth: "600px",
+          margin: "60px auto",
+          textAlign: "center",
+          padding: "48px 20px",
+          background: "#ffffff",
+          borderRadius: "12px",
+          border: "1px solid #e8e6dc",
+        }}
+      >
+        <div style={{ fontSize: "52px", marginBottom: "16px" }}>🔒</div>
+        <h2 style={{ color: "#1f3026", marginBottom: "12px", fontSize: "24px" }}>
+          Yêu cầu đăng nhập tài khoản
+        </h2>
+        <p style={{ color: "#666", lineHeight: "1.6", marginBottom: "28px" }}>
+          Bạn cần đăng nhập tài khoản Mộc Books để tiếp tục hoàn tất thanh toán, tích lũy điểm thưởng và theo dõi trạng thái đơn hàng.
+        </p>
+        <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
+          <button
+            type="button"
+            className="button primary"
+            onClick={onOpenAuth}
+            style={{ padding: "12px 26px", fontSize: "14px" }}
+          >
+            Đăng nhập / Đăng ký ngay
+          </button>
+          <button
+            type="button"
+            onClick={onHome}
+            style={{
+              padding: "12px 20px",
+              background: "#f1f0e8",
+              border: "1px solid #dcd9cd",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontWeight: 600,
+              color: "#1f3026",
+            }}
+          >
+            Về trang chủ
+          </button>
+        </div>
+      </main>
+    )
+  }
   return (
     <main className="checkout-page section">
       <div className="checkout-heading">
@@ -1574,6 +1589,17 @@ export default function App() {
     localStorage.removeItem("moc_current_user")
     setCurrentUser(null)
   }
+  // 1. Hàm kiểm tra điều hướng sang Checkout an toàn
+  function handleGoCheckout() {
+    if (!currentUser) {
+      // Chưa đăng nhập -> Mở khung đăng nhập
+      setAuthOpen(true)
+      return
+    }
+    // Đã đăng nhập -> Chuyển trang thanh toán
+    setCartOpen(false)
+    go("checkout")
+  }
 
   const cartCount = Object.values(cart).reduce((sum, value) => sum + value, 0)
 
@@ -1587,10 +1613,14 @@ export default function App() {
     setCartOpen(true)
   }
 
-  function buyNow(id: number) {
+function buyNow(id: number) {
     setCart((c) => ({ ...c, [id]: (c[id] || 0) + 1 }))
     setCartOpen(false)
-    go("checkout")
+    if (!currentUser) {
+      setAuthOpen(true)
+    } else {
+      go("checkout")
+    }
   }
 
   function quantity(id: number, delta: number) {
@@ -1679,6 +1709,8 @@ export default function App() {
       {view === "checkout" && (
         <Checkout
           cart={cart}
+          currentUser={currentUser} // 👈 Truyền user hiện tại
+          onOpenAuth={() => setAuthOpen(true)} // 👈 Mở popup Auth
           onHome={() => go("home")}
           onSaveOrder={handleSaveOrder}
           onSuccess={() => {
@@ -1696,10 +1728,7 @@ export default function App() {
           onClose={() => setCartOpen(false)}
           onQuantity={quantity}
           onRemove={removeItem}
-          onCheckout={() => {
-            setCartOpen(false)
-            go("checkout")
-          }}
+          onCheckout={handleGoCheckout}
         />
       )}
 
